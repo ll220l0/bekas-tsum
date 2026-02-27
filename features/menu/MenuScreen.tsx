@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -109,7 +109,7 @@ export default function MenuScreen({ slug }: { slug: string }) {
   const items = useMemo(() => {
     if (!data) return [];
     const byCategory = !activeCat ? data.items : data.items.filter((x) => x.categoryId === activeCat);
-    return byCategory.filter((x) => x.isAvailable);
+    return byCategory;
   }, [data, activeCat]);
 
   function addToCart(item: MenuResp["items"][number]) {

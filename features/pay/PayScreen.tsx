@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -53,8 +53,25 @@ function getEffectiveTotalKgs(order: OrderResp | null, fallbackTotalKgs = 0) {
     if (!Number.isFinite(qty) || !Number.isFinite(priceKgs)) return sum;
     return sum + Math.max(0, Math.round(qty)) * Math.max(0, Math.round(priceKgs));
   }, 0);
+
   if (computedFromItems > 0) return computedFromItems;
   return fallbackTotalKgs;
+}
+
+function IconCheck({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M5 12.5L9.5 17L19 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconCross({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M7 7L17 17M17 7L7 17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 export default function PayScreen({ orderId }: { orderId: string }) {
@@ -70,6 +87,7 @@ export default function PayScreen({ orderId }: { orderId: string }) {
   const cancelInitiatedByClientRef = useRef(false);
   const router = useRouter();
   const clearCart = useCart((state) => state.clear);
+
   const historyTotalKgs = useMemo(() => {
     const totalFromHistory = getOrderHistoryEntry(orderId)?.totalKgs ?? 0;
     const parsed = Number(totalFromHistory);
@@ -371,7 +389,9 @@ export default function PayScreen({ orderId }: { orderId: string }) {
         {showCanceledCard && (
           <Card className="mt-4 p-6">
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500 text-2xl text-white">?</div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500 text-white">
+                <IconCross className="h-7 w-7" />
+              </div>
               <div className="mt-3 text-lg font-bold text-rose-700">Заказ отменен</div>
               <div className="mt-1 text-sm text-black/60">Заказ обнулен. Возвращаем в меню...</div>
             </div>
@@ -395,8 +415,8 @@ export default function PayScreen({ orderId }: { orderId: string }) {
           <div className="canceled-card relative w-full max-w-sm overflow-hidden rounded-[28px] border border-rose-200/80 bg-white/90 p-7 text-center shadow-[0_24px_70px_-24px_rgba(244,63,94,0.62)] backdrop-blur-xl">
             <div className="relative mx-auto h-24 w-24">
               <div className="canceled-cross-ring absolute inset-0 rounded-full border-4 border-rose-300/75" />
-              <div className="canceled-cross-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-rose-500 to-rose-600 text-3xl font-black text-white shadow-[0_12px_30px_-12px_rgba(225,29,72,0.8)]">
-                ?
+              <div className="canceled-cross-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-[0_12px_30px_-12px_rgba(225,29,72,0.8)]">
+                <IconCross className="h-8 w-8" />
               </div>
             </div>
             <div className="mt-4 text-[24px] font-extrabold leading-tight text-rose-700">Заказ отменен</div>
@@ -419,8 +439,8 @@ export default function PayScreen({ orderId }: { orderId: string }) {
 
             <div className="relative mx-auto h-24 w-24">
               <div className="approved-ring absolute inset-0 rounded-full border-4 border-emerald-300/70" />
-              <div className="approved-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-3xl font-black text-white shadow-[0_14px_34px_-14px_rgba(5,150,105,0.95)]">
-                ?
+              <div className="approved-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[0_14px_34px_-14px_rgba(5,150,105,0.95)]">
+                <IconCheck className="h-8 w-8" />
               </div>
             </div>
 
@@ -439,5 +459,3 @@ export default function PayScreen({ orderId }: { orderId: string }) {
     </main>
   );
 }
-
-

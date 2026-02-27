@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -61,6 +61,55 @@ type HistoryOrder = {
 
 const DELIVERY_WAIT_STATUSES = new Set(["confirmed", "cooking", "delivering"]);
 
+function IconCheck({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M5 12.5L9.5 17L19 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconCross({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M7 7L17 17M17 7L7 17" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconAlert({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M12 7V13" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" />
+      <circle cx="12" cy="17" r="1.35" fill="currentColor" />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.35" />
+    </svg>
+  );
+}
+
+function IconChevron({ open, className = "h-3.5 w-3.5" }: { open?: boolean; className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      className={`${className} transition-transform ${open ? "rotate-180" : "rotate-0"}`}
+      aria-hidden="true"
+    >
+      <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconHistory({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M4 12a8 8 0 1 0 2.3-5.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 4v3.8h3.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 8.5v4l2.8 1.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function StatusProgress({ status }: { status: string }) {
   if (isPendingConfirmation(status)) {
     return (
@@ -74,7 +123,9 @@ function StatusProgress({ status }: { status: string }) {
   if (status === "delivered") {
     return (
       <div className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">v</div>
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
+          <IconCheck />
+        </div>
         <div className="text-sm font-semibold text-emerald-700">Спасибо за выбор. Заказ доставлен.</div>
       </div>
     );
@@ -83,7 +134,9 @@ function StatusProgress({ status }: { status: string }) {
   if (isApprovedStatus(status)) {
     return (
       <div className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">v</div>
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
+          <IconCheck />
+        </div>
         <div className="text-sm font-semibold text-emerald-700">Заказ подтвержден</div>
       </div>
     );
@@ -91,7 +144,9 @@ function StatusProgress({ status }: { status: string }) {
 
   return (
     <div className="mt-4 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white">!</div>
+      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white">
+        <IconAlert />
+      </div>
       <div className="text-sm font-semibold text-rose-700">Заказ отменен</div>
     </div>
   );
@@ -99,10 +154,18 @@ function StatusProgress({ status }: { status: string }) {
 
 function historyStatusIcon(status: string) {
   if (status === "delivered") {
-    return <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">v</span>;
+    return (
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+        <IconCheck className="h-3.5 w-3.5" />
+      </span>
+    );
   }
   if (status === "canceled") {
-    return <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-xs font-bold text-rose-700">x</span>;
+    return (
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+        <IconCross className="h-3.5 w-3.5" />
+      </span>
+    );
   }
   return <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">•</span>;
 }
@@ -242,9 +305,7 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
   }, [data?.status]);
 
   useEffect(() => {
-    if (orderMissing) return;
-
-    const fallbackTimer = setInterval(() => void loadOrder(true), 15000);
+    const fallbackTimer = setInterval(() => void loadOrder(true), 5000);
 
     let es: EventSource | null = null;
     if (typeof window !== "undefined" && "EventSource" in window) {
@@ -272,7 +333,7 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
       clearInterval(fallbackTimer);
       if (es) es.close();
     };
-  }, [loadOrder, orderId, orderMissing]);
+  }, [loadOrder, orderId]);
 
   const statusMeta = useMemo(() => getOrderStatusMeta(data?.status ?? ""), [data?.status]);
   const menuSlug = data?.restaurant?.slug ?? history[0]?.restaurant?.slug ?? "dordoi-food";
@@ -286,8 +347,8 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
           <div className="delivered-card relative w-full max-w-sm overflow-hidden rounded-[28px] border border-emerald-200/80 bg-white/90 p-7 text-center shadow-[0_24px_70px_-24px_rgba(16,185,129,0.65)] backdrop-blur-xl">
             <div className="relative mx-auto h-24 w-24">
               <div className="delivered-check-ring absolute inset-0 rounded-full border-4 border-emerald-300/70" />
-              <div className="delivered-check-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-3xl font-black text-white shadow-[0_12px_30px_-12px_rgba(5,150,105,0.85)]">
-                ?
+              <div className="delivered-check-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[0_12px_30px_-12px_rgba(5,150,105,0.85)]">
+                <IconCheck className="h-8 w-8" />
               </div>
             </div>
             <div className="mt-4 text-[24px] font-extrabold leading-tight text-emerald-700">Заказ доставлен</div>
@@ -308,8 +369,8 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
           <div className="canceled-card relative w-full max-w-sm overflow-hidden rounded-[28px] border border-rose-200/80 bg-white/90 p-7 text-center shadow-[0_24px_70px_-24px_rgba(244,63,94,0.62)] backdrop-blur-xl">
             <div className="relative mx-auto h-24 w-24">
               <div className="canceled-cross-ring absolute inset-0 rounded-full border-4 border-rose-300/75" />
-              <div className="canceled-cross-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-rose-500 to-rose-600 text-3xl font-black text-white shadow-[0_12px_30px_-12px_rgba(225,29,72,0.8)]">
-                ?
+              <div className="canceled-cross-core absolute inset-[14px] flex items-center justify-center rounded-full bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-[0_12px_30px_-12px_rgba(225,29,72,0.8)]">
+                <IconCross className="h-8 w-8" />
               </div>
             </div>
             <div className="mt-4 text-[24px] font-extrabold leading-tight text-rose-700">Заказ отменен</div>
@@ -412,12 +473,14 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
         <Card className="overflow-hidden p-0">
           <button className="flex w-full items-center justify-between px-4 py-4 text-left" onClick={() => setHistoryOpen((value) => !value)}>
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-700">?</span>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+                <IconHistory className="h-4 w-4" />
+              </span>
               <span className="text-sm font-semibold">История заказов</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-black/45">{history.length}</span>
-              <span className={`text-xs transition-transform ${historyOpen ? "rotate-180" : ""}`}>Ў</span>
+              <IconChevron open={historyOpen} className="h-4 w-4 text-black/55" />
             </div>
           </button>
 
@@ -442,7 +505,7 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
                           <div className="text-xs text-black/55">{createdDate.toLocaleTimeString()}</div>
                           <div className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-black/45">
                             <span>{isExpanded ? "Свернуть" : "Подробнее"}</span>
-                            <span className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}>?</span>
+                            <IconChevron open={isExpanded} className="h-3.5 w-3.5" />
                           </div>
                         </div>
                       </button>
@@ -489,6 +552,3 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
     </main>
   );
 }
-
-
-
