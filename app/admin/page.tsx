@@ -22,9 +22,8 @@ type NavItem = {
   subtitle: string;
   href: string;
   icon: IconKind;
-  accent: string;
+  iconTone: string;
   visible: boolean;
-  featured?: boolean;
 };
 
 function ChevronIcon() {
@@ -105,16 +104,15 @@ export default async function AdminHome() {
       subtitle: "\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435 \u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u044f",
       href: "/admin/orders",
       icon: "orders",
-      accent: "from-slate-900 via-slate-800 to-black",
-      visible: true,
-      featured: true
+      iconTone: "border-slate-300 bg-slate-50 text-slate-700 shadow-[0_0_0_1px_rgba(51,65,85,0.14),0_14px_24px_-14px_rgba(15,23,42,0.75)]",
+      visible: true
     },
     {
       title: "\u041c\u0435\u043d\u044e",
       subtitle: "\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438 \u0438 \u0431\u043b\u044e\u0434\u0430",
       href: "/admin/menu",
       icon: "menu",
-      accent: "from-orange-500 via-amber-500 to-yellow-500",
+      iconTone: "border-orange-200 bg-orange-50 text-orange-700 shadow-[0_0_0_1px_rgba(249,115,22,0.2),0_14px_24px_-14px_rgba(249,115,22,0.65)]",
       visible: isOwner || isOperator
     },
     {
@@ -122,7 +120,7 @@ export default async function AdminHome() {
       subtitle: "Mbank \u0438 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043e\u043f\u043b\u0430\u0442",
       href: "/admin/banks",
       icon: "banks",
-      accent: "from-violet-500 via-indigo-500 to-blue-500",
+      iconTone: "border-violet-200 bg-violet-50 text-violet-700 shadow-[0_0_0_1px_rgba(139,92,246,0.2),0_14px_24px_-14px_rgba(99,102,241,0.65)]",
       visible: isOwner
     },
     {
@@ -130,7 +128,7 @@ export default async function AdminHome() {
       subtitle: "\u0412\u044b\u0440\u0443\u0447\u043a\u0430, \u043a\u043e\u043d\u0432\u0435\u0440\u0441\u0438\u044f, \u0434\u0438\u043d\u0430\u043c\u0438\u043a\u0430",
       href: "/admin/reports",
       icon: "reports",
-      accent: "from-cyan-500 via-sky-500 to-blue-500",
+      iconTone: "border-cyan-200 bg-cyan-50 text-cyan-700 shadow-[0_0_0_1px_rgba(6,182,212,0.2),0_14px_24px_-14px_rgba(14,165,233,0.65)]",
       visible: (isOwner || isOperator) && !isCourier
     },
     {
@@ -138,7 +136,7 @@ export default async function AdminHome() {
       subtitle: "\u0414\u043e\u0441\u0442\u0443\u043f\u044b \u0438 \u0440\u043e\u043b\u0438",
       href: "/admin/staff",
       icon: "staff",
-      accent: "from-emerald-500 via-teal-500 to-cyan-500",
+      iconTone: "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-[0_0_0_1px_rgba(16,185,129,0.2),0_14px_24px_-14px_rgba(20,184,166,0.65)]",
       visible: isOwner || isOperator
     }
   ];
@@ -163,28 +161,10 @@ export default async function AdminHome() {
                 <div className={"inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold " + roleTone}>
                   {"\u0420\u043e\u043b\u044c:\u0020" + roleLabel}
                 </div>
-                <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                  {(session?.user ?? "admin") + " \u2022 online"}
-                </div>
               </div>
             </div>
 
             <AdminLogoutButton className="px-3 py-2 text-sm" />
-          </div>
-
-          <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200/70 bg-white/85 px-3 py-2">
-              <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{"\u0420\u0430\u0437\u0434\u0435\u043b\u044b"}</div>
-              <div className="mt-1 text-lg font-black text-slate-900">{visibleItems.length}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/70 bg-white/85 px-3 py-2">
-              <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{"\u0421\u0442\u0430\u0442\u0443\u0441"}</div>
-              <div className="mt-1 text-lg font-black text-emerald-600">{"\u0410\u043a\u0442\u0438\u0432\u0435\u043d"}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200/70 bg-white/85 px-3 py-2">
-              <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{"\u0414\u043e\u0441\u0442\u0443\u043f"}</div>
-              <div className="mt-1 truncate text-lg font-black text-slate-900">{roleLabel}</div>
-            </div>
           </div>
         </section>
 
@@ -193,33 +173,19 @@ export default async function AdminHome() {
             <Link
               key={item.href}
               href={item.href}
-              className={
-                "group relative overflow-hidden rounded-3xl border px-4 py-4 transition-all duration-300 " +
-                "hover:-translate-y-[2px] hover:shadow-[0_24px_46px_-30px_rgba(15,23,42,0.55)] active:translate-y-0 " +
-                (item.featured
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-white/85 bg-white/80 text-slate-900 backdrop-blur-xl")
-              }
+              className="group rounded-3xl border border-white/85 bg-white/80 px-4 py-4 text-slate-900 backdrop-blur-xl transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[0_24px_46px_-30px_rgba(15,23,42,0.45)] active:translate-y-0"
             >
-              <div className={"pointer-events-none absolute inset-0 bg-gradient-to-r opacity-0 transition-opacity duration-300 group-hover:opacity-100 " + item.accent + (item.featured ? " opacity-90 group-hover:opacity-95" : "")}></div>
-              <div className={"relative flex items-center gap-3 " + (item.featured ? "text-white" : "group-hover:text-white")}>
-                <div
-                  className={
-                    "grid h-10 w-10 shrink-0 place-items-center rounded-2xl transition " +
-                    (item.featured
-                      ? "bg-white/20 text-white"
-                      : "border border-slate-200 bg-white text-slate-700 group-hover:border-white/30 group-hover:bg-white/20 group-hover:text-white")
-                  }
-                >
+              <div className="flex items-center gap-3">
+                <div className={"grid h-10 w-10 shrink-0 place-items-center rounded-2xl border transition-transform duration-300 group-hover:scale-[1.04] " + item.iconTone}>
                   <SectionIcon kind={item.icon} />
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="text-[22px] font-black leading-6">{item.title}</div>
-                  <div className={"mt-1 text-sm " + (item.featured ? "text-white/80" : "text-slate-500 group-hover:text-white/85")}>{item.subtitle}</div>
+                  <div className="mt-1 text-sm text-slate-500">{item.subtitle}</div>
                 </div>
 
-                <div className={"shrink-0 transition-transform duration-300 group-hover:translate-x-1 " + (item.featured ? "text-white" : "text-slate-500 group-hover:text-white")}>
+                <div className="shrink-0 text-slate-500 transition-transform duration-300 group-hover:translate-x-1">
                   <ChevronIcon />
                 </div>
               </div>
