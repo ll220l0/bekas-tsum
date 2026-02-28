@@ -44,7 +44,11 @@ export async function PATCH(req: Request, { params }: Params) {
         role: updated.role,
         source: "db",
         readonly: false,
-        createdAt: updated.createdAt
+        createdAt: updated.createdAt,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        phone: updated.phone,
+        avatarUrl: updated.avatarUrl
       }
     });
   } catch (error: unknown) {

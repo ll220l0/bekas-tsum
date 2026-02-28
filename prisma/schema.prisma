@@ -148,6 +148,19 @@ model AdminUser {
   @@index([isActive])
 }
 
+model AdminProfile {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  firstName String
+  lastName  String
+  phone     String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([username])
+}
+
 model AdminAuditLog {
   id        String   @id @default(cuid())
   orderId   String?
