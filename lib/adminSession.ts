@@ -162,11 +162,7 @@ export function validateAdminPassword(inputUser: string, inputPass: string): Omi
 }
 
 export async function createAdminSessionToken(identity: Omit<AdminSessionIdentity, "exp">) {
-  const accounts = getAdminAccounts();
-  if (accounts.length === 0) return null;
-
-  const account = accounts.find((x) => x.user === identity.user && x.role === identity.role);
-  if (!account) return null;
+  if (!isNonEmpty(identity.user) || !isAdminRole(identity.role)) return null;
 
   const payload: AdminSessionPayload = {
     u: identity.user,
@@ -180,9 +176,6 @@ export async function createAdminSessionToken(identity: Omit<AdminSessionIdentit
 }
 
 export async function verifyAdminSessionToken(token: string): Promise<AdminSessionIdentity | null> {
-  const accounts = getAdminAccounts();
-  if (accounts.length === 0) return null;
-
   const [payloadEncoded, signature] = token.split(".");
   if (!payloadEncoded || !signature) return null;
 
@@ -202,10 +195,9 @@ export async function verifyAdminSessionToken(token: string): Promise<AdminSessi
   if (!payload?.u || typeof payload.exp !== "number") return null;
   if (Date.now() >= payload.exp) return null;
 
-  const account = accounts.find((x) => x.user === payload.u);
-  if (!account) return null;
+  if (!isNonEmpty(payload.u)) return null;
+  if (!isAdminRole(payload.r)) return null;
 
-  const role = isAdminRole(payload.r) ? payload.r : account.role;
-  return { user: payload.u, role, exp: payload.exp };
+  return { user: payload.u, role: payload.r, exp: payload.exp };
 }
 

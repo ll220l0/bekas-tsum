@@ -6,6 +6,7 @@ import {
   hasAdminCredentials,
   validateAdminPassword
 } from "@/lib/adminSession";
+import { authenticateDatabaseAdminUser, hasDatabaseAdminUsers } from "@/lib/adminUsers";
 
 type LoginBody = {
   username?: string;
@@ -13,16 +14,22 @@ type LoginBody = {
 };
 
 export async function POST(req: Request) {
-  if (!hasAdminCredentials()) {
-    return NextResponse.json({ error: "Учетные данные администратора не настроены" }, { status: 500 });
-  }
-
   const body = (await req.json().catch(() => null)) as LoginBody | null;
   const username = body?.username?.trim() ?? "";
   const password = body?.password ?? "";
 
-  const identity = validateAdminPassword(username, password);
+  if (!username || !password) {
+    return NextResponse.json({ error: "Введите логин и пароль" }, { status: 400 });
+  }
+
+  const dbIdentity = await authenticateDatabaseAdminUser(username, password);
+  const envIdentity = dbIdentity ? null : validateAdminPassword(username, password);
+  const identity = dbIdentity ?? envIdentity;
+
   if (!identity) {
+    if (!hasAdminCredentials() && !(await hasDatabaseAdminUsers())) {
+      return NextResponse.json({ error: "Учетные данные администратора не настроены" }, { status: 500 });
+    }
     return NextResponse.json({ error: "Неверный логин или пароль" }, { status: 401 });
   }
 
@@ -43,4 +50,3 @@ export async function POST(req: Request) {
   });
   return res;
 }
-
