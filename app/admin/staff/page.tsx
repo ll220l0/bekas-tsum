@@ -75,13 +75,13 @@ function SelectField({ value, onChange, children, className }: { value: string; 
   return (
     <div className={`relative ${className ?? ""}`}>
       <select
-        className="h-11 w-full appearance-none rounded-xl border border-black/10 bg-white px-3 pr-12 text-sm text-black/90"
+        className="h-11 w-full appearance-none rounded-2xl border border-slate-200 bg-white/95 px-4 pr-12 text-sm font-medium text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] transition focus:border-slate-300 focus:outline-none"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {children}
       </select>
-      <span className="pointer-events-none absolute inset-y-0 right-4 inline-flex items-center text-black/55">
+      <span className="pointer-events-none absolute inset-y-0 right-4 inline-flex items-center text-slate-500">
         <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
           <path d="M5.5 7.5L10 12.5L14.5 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -363,7 +363,7 @@ export default function AdminStaffPage() {
               {members.map((member) => {
                 const selectedRole = roleDraft[member.id] ?? member.role;
                 const changed = selectedRole !== member.role;
-                const canEditRole = Boolean(canManage && !member.readonly);
+                const canEditRole = Boolean(canManage && !member.readonly && member.role !== "owner");
                 const isCurrent = member.user === data?.user;
 
                 return (
@@ -404,8 +404,7 @@ export default function AdminStaffPage() {
                       {canEditRole ? (
                         <>
                           <SelectField value={selectedRole} onChange={(next) => setRoleDraft((prev) => ({ ...prev, [member.id]: next as AdminRole }))} className="w-full sm:w-[220px]">
-                            <option value="owner">Владелец</option>
-                            <option value="operator">Оператор</option>
+                                                        <option value="operator">Оператор</option>
                             <option value="courier">Курьер</option>
                           </SelectField>
                           <Button className="h-11 px-4 text-sm" disabled={!changed || savingRoleId === member.id} onClick={() => void saveRole(member)}>
@@ -414,9 +413,7 @@ export default function AdminStaffPage() {
                         </>
                       ) : (
                         <div className="text-xs text-black/55">
-                          {member.readonly
-                            ? "Роль этого аккаунта задается через переменные окружения"
-                            : "Недостаточно прав для изменения роли"}
+                          {member.readonly ? "Роль этого аккаунта задается через переменные окружения" : member.role === "owner" ? "Роль владельца фиксирована" : "Недостаточно прав для изменения роли"}
                         </div>
                       )}
                     </div>
@@ -432,42 +429,41 @@ export default function AdminStaffPage() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
           <button className="absolute inset-0 bg-black/35 backdrop-blur-sm" aria-label="Закрыть окно создания сотрудника" onClick={() => setCreateModalOpen(false)} />
 
-          <Card className="motion-pop relative z-10 w-full max-w-3xl p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-3">
+          <Card className="motion-pop relative z-10 w-full max-w-3xl border border-white/80 bg-gradient-to-br from-white/95 via-white/90 to-slate-100/75 p-5 shadow-[0_30px_80px_-45px_rgba(15,23,42,0.58)]">
+            <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/80 bg-white/70 p-3">
               <div>
-                <div className="text-xl font-extrabold">Новый сотрудник</div>
-                <div className="mt-1 text-sm text-black/55">Заполните данные. Иконка сотрудника ставится автоматически по роли.</div>
+                <div className="text-2xl font-black leading-tight text-slate-900">Новый сотрудник</div>
+                <div className="mt-1 text-sm text-slate-600">Заполните данные. Иконка сотрудника ставится автоматически по роли.</div>
               </div>
-              <button className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/65" onClick={() => setCreateModalOpen(false)}>
+              <button className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-[0_8px_18px_-12px_rgba(15,23,42,0.45)]" onClick={() => setCreateModalOpen(false)}>
                 Закрыть
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 placeholder="Логин"
                 autoComplete="off"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
-              <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-white p-2">
+              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/92 p-2.5 shadow-[0_12px_26px_-18px_rgba(15,23,42,0.45)]">
                 <RoleIcon role={role} />
                 <SelectField value={role} onChange={(next) => setRole(next as AdminRole)} className="flex-1">
-                  <option value="owner">Владелец</option>
-                  <option value="operator">Оператор</option>
+                                    <option value="operator">Оператор</option>
                   <option value="courier">Курьер</option>
                 </SelectField>
               </div>
 
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 placeholder="Имя"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
               />
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 placeholder="Фамилия"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
@@ -482,7 +478,7 @@ export default function AdminStaffPage() {
               />
 
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 type="password"
                 placeholder="Пароль"
                 autoComplete="new-password"
@@ -490,7 +486,7 @@ export default function AdminStaffPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 type="password"
                 placeholder="Подтвердите пароль"
                 autoComplete="new-password"
@@ -499,7 +495,7 @@ export default function AdminStaffPage() {
               />
             </div>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button variant="secondary" className="h-11 px-4" onClick={() => setCreateModalOpen(false)}>
                 Отмена
               </Button>
@@ -516,7 +512,7 @@ export default function AdminStaffPage() {
           <button className="absolute inset-0 bg-black/35 backdrop-blur-sm" aria-label="Закрыть окно профиля" onClick={() => setProfileModalOpen(false)} />
 
           <Card className="motion-pop relative z-10 w-full max-w-2xl p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3 rounded-2xl border border-white/80 bg-white/70 p-3">
               <div>
                 <div className="text-xl font-extrabold">Мой профиль</div>
                 <div className="mt-1 text-sm text-black/55">Фото отключены. В интерфейсе используется иконка по роли.</div>
@@ -536,15 +532,15 @@ export default function AdminStaffPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 placeholder="Имя"
                 value={profileFirstName}
                 onChange={(e) => setProfileFirstName(e.target.value)}
               />
               <input
-                className="rounded-xl border border-black/10 bg-white px-3 py-3"
+                className="rounded-2xl border border-slate-200 bg-white/92 px-4 py-3 text-[16px] text-slate-900 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus:border-slate-300 focus:outline-none"
                 placeholder="Фамилия"
                 value={profileLastName}
                 onChange={(e) => setProfileLastName(e.target.value)}
@@ -558,7 +554,7 @@ export default function AdminStaffPage() {
               />
             </div>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Button variant="secondary" className="h-11 px-4" onClick={() => setProfileModalOpen(false)}>
                 Отмена
               </Button>
