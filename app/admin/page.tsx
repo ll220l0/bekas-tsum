@@ -52,6 +52,12 @@ export default async function AdminHome() {
               Отчеты
             </Link>
           )}
+
+          {(isOwner || isOperator) && (
+            <Link className="rounded-xl border border-black/10 bg-white py-3 text-center font-semibold" href="/admin/staff">
+              {"\u0421\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a\u0438"}
+            </Link>
+          )}
         </div>
       </div>
     </main>

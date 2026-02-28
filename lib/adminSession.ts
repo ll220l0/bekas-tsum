@@ -25,6 +25,11 @@ type AdminAccount = {
   role: AdminRole;
 };
 
+export type AdminAccountPublic = {
+  user: string;
+  role: AdminRole;
+};
+
 function isNonEmpty(value: string | undefined | null) {
   return Boolean(value && value.trim().length > 0);
 }
@@ -137,6 +142,13 @@ export function isAdminRole(value: unknown): value is AdminRole {
 
 export function hasAdminCredentials() {
   return getAdminAccounts().length > 0;
+}
+
+export function listAdminAccounts(): AdminAccountPublic[] {
+  return getAdminAccounts().map((account) => ({
+    user: account.user,
+    role: account.role
+  }));
 }
 
 export function validateAdminPassword(inputUser: string, inputPass: string): Omit<AdminSessionIdentity, "exp"> | null {
