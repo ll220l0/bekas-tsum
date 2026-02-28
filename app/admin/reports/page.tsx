@@ -280,54 +280,28 @@ function ConversionDonut({ summary }: { summary: ReportResp["summary"] | null | 
   const safePending = Math.max(0, normalizedTotal - safeDelivered - safeCanceled);
   const totalSafe = safeDelivered + safePending + safeCanceled;
 
-  const radius = 58;
-  const circumference = 2 * Math.PI * radius;
-  const values = [safeDelivered, safePending, safeCanceled];
-  const colors = ["#10b981", "#0ea5e9", "#f43f5e"];
-  const minVisibleLength = 3;
+  const deliveredPct = totalSafe > 0 ? (safeDelivered / totalSafe) * 100 : 0;
+  const pendingPct = totalSafe > 0 ? (safePending / totalSafe) * 100 : 0;
+  const splitA = Math.max(0, Math.min(100, deliveredPct));
+  const splitB = Math.max(splitA, Math.min(100, deliveredPct + pendingPct));
 
-  const segments = values.map((value, idx) => {
-    const rawLength = totalSafe > 0 ? (value / totalSafe) * circumference : 0;
-    const length = value > 0 ? Math.max(minVisibleLength, rawLength) : 0;
-    const previousRaw = values.slice(0, idx).reduce((sum, item) => sum + item, 0);
-    const offset = circumference - (previousRaw / Math.max(1, totalSafe)) * circumference;
-    return {
-      idx,
-      value,
-      length,
-      offset
-    };
-  });
+  const conicGradient =
+    totalSafe > 0
+      ? `conic-gradient(from -90deg, #10b981 0% ${splitA}%, #0ea5e9 ${splitA}% ${splitB}%, #f43f5e ${splitB}% 100%)`
+      : "conic-gradient(from -90deg, rgba(15,23,42,0.08) 0% 100%)";
 
   return (
     <Card className="overflow-hidden border border-black/10 bg-white/88 p-0 shadow-[0_26px_60px_-36px_rgba(15,23,42,0.5)] backdrop-blur">
       <div className="border-b border-black/10 px-4 py-3 text-sm font-semibold text-black/80">Конверсия заказов</div>
       <div className="grid gap-3 px-4 pb-4 pt-4 sm:grid-cols-[160px_1fr] sm:items-center">
         <div className="mx-auto">
-          <svg width="150" height="150" viewBox="0 0 150 150" className="h-32 w-32 sm:h-[150px] sm:w-[150px]">
-            <circle cx="75" cy="75" r={radius} fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="16" />
-            {segments.map((segment) => (
-              <circle
-                key={segment.idx}
-                cx="75"
-                cy="75"
-                r={radius}
-                fill="none"
-                stroke={colors[segment.idx]}
-                strokeWidth="16"
-                strokeDasharray={`${Math.max(segment.length, 0)} ${circumference}`}
-                strokeDashoffset={segment.offset}
-                strokeLinecap="butt"
-                transform="rotate(-90 75 75)"
-              />
-            ))}
-            <text x="75" y="69" textAnchor="middle" className="fill-black/45 text-[11px] font-semibold uppercase tracking-[0.12em]">
-              всего
-            </text>
-            <text x="75" y="92" textAnchor="middle" className="fill-black text-[26px] font-extrabold">
-              {totalSafe}
-            </text>
-          </svg>
+          <div className="relative h-32 w-32 rounded-full sm:h-[150px] sm:w-[150px]" style={{ background: conicGradient }}>
+            <div className="absolute inset-[14px] rounded-full bg-white/95 ring-1 ring-black/5 sm:inset-[16px]" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-black/45">{"\u0412\u0441\u0435\u0433\u043e"}</div>
+              <div className="text-[24px] font-extrabold text-black sm:text-[26px]">{totalSafe}</div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2">
