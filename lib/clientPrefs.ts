@@ -212,3 +212,28 @@ export function getFrequentMenuItems(restaurantSlug: string) {
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 4);
 }
+
+const SAVED_ADDRESSES_KEY = "dordoi_saved_addresses";
+const SAVED_ADDRESSES_LIMIT = 3;
+
+export type SavedAddress = { line: string; container: string; label?: string };
+
+export function getSavedAddresses(): SavedAddress[] {
+  if (typeof window === "undefined") return [];
+  const raw = window.localStorage.getItem(SAVED_ADDRESSES_KEY);
+  return safeParse<SavedAddress[]>(raw ?? "", []).filter(
+    (a) => a.line?.trim() || a.container?.trim()
+  );
+}
+
+export function addSavedAddress(addr: SavedAddress) {
+  if (typeof window === "undefined") return;
+  const line = addr.line.trim();
+  const container = addr.container.trim();
+  if (!line && !container) return;
+  const existing = getSavedAddresses().filter(
+    (a) => !(a.line === line && a.container === container)
+  );
+  const next = [{ line, container }, ...existing].slice(0, SAVED_ADDRESSES_LIMIT);
+  window.localStorage.setItem(SAVED_ADDRESSES_KEY, JSON.stringify(next));
+}

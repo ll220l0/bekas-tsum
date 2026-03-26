@@ -48,7 +48,6 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
       >
         −
       </button>
-
       <div
         className={`min-w-[2.4rem] flex-1 px-2 text-center text-[15px] font-extrabold text-slate-900 transition-transform duration-200 ${
           isPopping ? "scale-115" : "scale-100"
@@ -56,7 +55,6 @@ function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onD
       >
         {qty}
       </div>
-
       <button
         type="button"
         onClick={onInc}
@@ -94,6 +92,101 @@ function SkeletonCard({ delay = 0 }: { delay?: number }) {
   );
 }
 
+type MenuItem = MenuResp["items"][number];
+
+function ItemDetailModal({
+  item,
+  qty,
+  onClose,
+  onAdd,
+  onInc,
+  onDec
+}: {
+  item: MenuItem;
+  qty: number;
+  onClose: () => void;
+  onAdd: () => void;
+  onInc: () => void;
+  onDec: () => void;
+}) {
+  // Close on backdrop click or Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true">
+      {/* Backdrop */}
+      <button
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        aria-label="Закрыть"
+        onClick={onClose}
+      />
+      {/* Sheet */}
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-[32px] border border-white/85 bg-white/90 shadow-[0_-20px_60px_rgba(15,23,42,0.22)] backdrop-blur-2xl"
+        style={{ animation: "modal-slide-up 280ms cubic-bezier(0.22,1,0.36,1)" }}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="h-1 w-10 rounded-full bg-black/15" />
+        </div>
+
+        {/* Image */}
+        <div className="relative mx-4 mt-1 h-52 overflow-hidden rounded-[22px] bg-black/5 shadow-[0_8px_24px_rgba(15,23,42,0.14)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.photoUrl} alt={item.title} className="h-full w-full object-cover" />
+          {!item.isAvailable && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-[22px] bg-black/40 backdrop-blur-sm">
+              <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-slate-700">Нет в наличии</span>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="px-4 pb-6 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xl font-extrabold leading-tight text-slate-900">{item.title}</h2>
+            <div className="shrink-0 rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-50 to-amber-100/60 px-3 py-1.5 text-base font-extrabold tracking-tight text-amber-700 shadow-[0_3px_10px_rgba(245,158,11,0.14)]">
+              {formatKgs(item.priceKgs)}
+            </div>
+          </div>
+
+          {item.description ? (
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">{item.description}</p>
+          ) : null}
+
+          <div className="mt-4">
+            {!item.isAvailable ? (
+              <div className="flex h-12 items-center justify-center rounded-full border border-slate-200 bg-slate-100/80 text-sm font-semibold text-slate-400">
+                Нет в наличии
+              </div>
+            ) : qty > 0 ? (
+              <div className="flex items-center justify-between gap-4">
+                <QtyStepper qty={qty} onDec={onDec} onInc={onInc} />
+                <button
+                  onClick={onClose}
+                  className="flex-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 py-3 text-sm font-bold text-white shadow-[0_8px_20px_rgba(249,115,22,0.32)] active:scale-[0.98]"
+                >
+                  Готово
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { onAdd(); }}
+                className="w-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 py-3.5 text-base font-bold text-white shadow-[0_10px_24px_rgba(249,115,22,0.35),0_1px_0_rgba(255,255,255,0.22)_inset] active:scale-[0.98]"
+              >
+                + Добавить в корзину
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MenuScreen({ slug }: { slug: string }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["menu", slug],
@@ -103,6 +196,8 @@ export default function MenuScreen({ slug }: { slug: string }) {
 
   const router = useRouter();
   const [activeCat, setActiveCat] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const catBarRef = useRef<HTMLDivElement>(null);
 
   const setRestaurant = useCart((state) => state.setRestaurant);
@@ -138,8 +233,19 @@ export default function MenuScreen({ slug }: { slug: string }) {
 
   const items = useMemo(() => {
     if (!data) return [];
-    return !activeCat ? data.items : data.items.filter((item) => item.categoryId === activeCat);
-  }, [data, activeCat]);
+    let base = !activeCat || searchQuery.trim()
+      ? data.items
+      : data.items.filter((item) => item.categoryId === activeCat);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      base = base.filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          (item.description ?? "").toLowerCase().includes(q)
+      );
+    }
+    return base;
+  }, [data, activeCat, searchQuery]);
 
   function addToCart(item: MenuResp["items"][number]) {
     add({ menuItemId: item.id, title: item.title, photoUrl: item.photoUrl, priceKgs: item.priceKgs });
@@ -154,6 +260,7 @@ export default function MenuScreen({ slug }: { slug: string }) {
 
   function handleCatClick(id: string) {
     setActiveCat(id);
+    setSearchQuery("");
     scrollCatIntoView(id);
   }
 
@@ -181,34 +288,51 @@ export default function MenuScreen({ slug }: { slug: string }) {
             )}
           </div>
 
-          {/* Category pills */}
-          <div className="relative mt-3.5" ref={catBarRef}>
-            <div className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto pb-0.5">
-              {isLoading
-                ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-9 w-20 shrink-0 rounded-full skeleton" />
-                  ))
-                : (data?.categories ?? []).map((cat) => {
-                    const isActive = cat.id === activeCat;
-                    return (
-                      <button
-                        key={cat.id}
-                        data-catid={cat.id}
-                        type="button"
-                        aria-pressed={isActive}
-                        onClick={() => handleCatClick(cat.id)}
-                        className={`shrink-0 snap-start rounded-full px-4 py-2 text-sm font-semibold leading-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                          isActive
-                            ? "bg-gradient-to-r from-orange-500 to-amber-400 text-white shadow-[0_6px_16px_rgba(249,115,22,0.32),0_1px_0_rgba(255,255,255,0.2)_inset] border border-orange-400/20"
-                            : "border border-black/8 bg-white/80 text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.06)] hover:bg-white hover:shadow-[0_4px_12px_rgba(15,23,42,0.09)]"
-                        }`}
-                      >
-                        {cat.title}
-                      </button>
-                    );
-                  })}
-            </div>
+          {/* Search bar */}
+          <div className="relative mt-3">
+            <svg viewBox="0 0 20 20" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5" stroke="currentColor" strokeWidth="1.7" />
+              <path d="M12.5 12.5L16 16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Найти блюдо..."
+              className="w-full rounded-xl border border-black/8 bg-white/80 py-2 pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400/30"
+            />
           </div>
+
+          {/* Category pills */}
+          {!searchQuery.trim() && (
+            <div className="relative mt-3" ref={catBarRef}>
+              <div className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto pb-0.5">
+                {isLoading
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-9 w-20 shrink-0 rounded-full skeleton" />
+                    ))
+                  : (data?.categories ?? []).map((cat) => {
+                      const isActive = cat.id === activeCat;
+                      return (
+                        <button
+                          key={cat.id}
+                          data-catid={cat.id}
+                          type="button"
+                          aria-pressed={isActive}
+                          onClick={() => handleCatClick(cat.id)}
+                          className={`shrink-0 snap-start rounded-full px-4 py-2 text-sm font-semibold leading-none transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                            isActive
+                              ? "bg-gradient-to-r from-orange-500 to-amber-400 text-white shadow-[0_6px_16px_rgba(249,115,22,0.32),0_1px_0_rgba(255,255,255,0.2)_inset] border border-orange-400/20"
+                              : "border border-black/8 bg-white/80 text-slate-600 shadow-[0_2px_8px_rgba(15,23,42,0.06)] hover:bg-white hover:shadow-[0_4px_12px_rgba(15,23,42,0.09)]"
+                          }`}
+                        >
+                          {cat.title}
+                        </button>
+                      );
+                    })}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ── Menu Items ── */}
@@ -223,8 +347,15 @@ export default function MenuScreen({ slug }: { slug: string }) {
             </Card>
           ) : items.length === 0 ? (
             <Card className="p-6 text-center">
-              <div className="text-2xl">🍽</div>
-              <div className="mt-2 text-sm font-medium text-slate-500">В этой категории пока нет блюд</div>
+              <div className="text-2xl">{searchQuery ? "🔍" : "🍽"}</div>
+              <div className="mt-2 text-sm font-medium text-slate-500">
+                {searchQuery ? `Ничего не найдено по запросу «${searchQuery}»` : "В этой категории пока нет блюд"}
+              </div>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="mt-2 text-sm font-semibold text-orange-500">
+                  Сбросить поиск
+                </button>
+              )}
             </Card>
           ) : (
             items.map((item, index) => {
@@ -238,27 +369,46 @@ export default function MenuScreen({ slug }: { slug: string }) {
                   style={{ animationDelay: animDelay }}
                 >
                   <div className="flex gap-4">
-                    <Photo
-                      src={item.photoUrl}
-                      alt={item.title}
-                      className="h-[96px] w-[96px] rounded-[22px] shadow-[0_8px_20px_rgba(15,23,42,0.12)]"
-                      sizes="96px"
-                    />
+                    {/* Clickable photo → opens modal */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedItem(item)}
+                      className="shrink-0 focus:outline-none"
+                      aria-label={`Подробнее: ${item.title}`}
+                    >
+                      <Photo
+                        src={item.photoUrl}
+                        alt={item.title}
+                        className="h-[96px] w-[96px] rounded-[22px] shadow-[0_8px_20px_rgba(15,23,42,0.12)] transition-transform duration-200 active:scale-95"
+                        sizes="96px"
+                      />
+                    </button>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 text-[15px] font-bold leading-snug text-slate-900" style={clamp2Style()}>
+                        {/* Clickable title → opens modal */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedItem(item)}
+                          className="min-w-0 text-left text-[15px] font-bold leading-snug text-slate-900 focus:outline-none"
+                          style={clamp2Style()}
+                        >
                           {item.title}
-                        </div>
+                        </button>
                         <div className="shrink-0 rounded-2xl border border-amber-200/70 bg-gradient-to-b from-amber-50 to-amber-100/60 px-2.5 py-1.5 text-[13px] font-extrabold tracking-tight text-amber-700 shadow-[0_3px_10px_rgba(245,158,11,0.14)]">
                           {formatKgs(item.priceKgs)}
                         </div>
                       </div>
 
                       {item.description ? (
-                        <div className="mt-1 text-[13px] leading-snug text-slate-400" style={clamp2Style()}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedItem(item)}
+                          className="mt-1 text-left text-[13px] leading-snug text-slate-400 focus:outline-none"
+                          style={clamp2Style()}
+                        >
                           {item.description}
-                        </div>
+                        </button>
                       ) : null}
 
                       <div className="mt-3 flex min-h-[44px] items-center justify-end">
@@ -308,6 +458,18 @@ export default function MenuScreen({ slug }: { slug: string }) {
       )}
 
       <ClientNav menuHref={`/r/${effectiveSlug}`} />
+
+      {/* ── Item Detail Modal ── */}
+      {selectedItem && (
+        <ItemDetailModal
+          item={selectedItem}
+          qty={qtyByItemId.get(selectedItem.id) ?? 0}
+          onClose={() => setSelectedItem(null)}
+          onAdd={() => addToCart(selectedItem)}
+          onInc={() => inc(selectedItem.id)}
+          onDec={() => dec(selectedItem.id)}
+        />
+      )}
     </main>
   );
 }
