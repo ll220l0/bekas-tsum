@@ -15,7 +15,7 @@ export function Card({
     <div
       style={style}
       className={clsx(
-        "rounded-2xl bg-stone-900 border border-stone-800/80",
+        "rounded-[26px] border border-[#ecd9bc] bg-white/90 shadow-[0_20px_50px_-28px_rgba(217,119,6,0.28)] backdrop-blur",
         "transition-[transform,box-shadow,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
         className
       )}
@@ -31,8 +31,8 @@ export function Pill({ children, active }: { children: ReactNode; active?: boole
       className={clsx(
         "rounded-full px-4 py-2 text-sm font-semibold transition",
         active
-          ? "bg-orange-500 text-white"
-          : "bg-stone-800 text-stone-400 border border-stone-700/80"
+          ? "bg-orange-500 text-white shadow-[0_10px_24px_-16px_rgba(249,115,22,0.55)]"
+          : "border border-[#eadbc4] bg-[#fff8ee] text-[#7b6a54]"
       )}
     >
       {children}
@@ -56,7 +56,7 @@ export function Photo({
   return (
     <div
       className={clsx(
-        "relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-800",
+        "relative h-20 w-20 shrink-0 overflow-hidden rounded-[20px] bg-[#f6ead7]",
         className
       )}
     >
@@ -87,14 +87,14 @@ export function Button({
   className?: string;
 }) {
   const base =
-    "inline-flex items-center justify-center rounded-full text-center font-bold leading-none transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 px-5 py-3";
+    "inline-flex items-center justify-center rounded-full px-5 py-3 text-center font-bold leading-none transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100";
 
   const styles =
     variant === "primary" || variant === "food"
-      ? "bg-orange-500 text-white shadow-[0_6px_20px_rgba(249,115,22,0.32)] hover:bg-orange-400"
+      ? "bg-orange-500 text-white shadow-[0_16px_32px_-20px_rgba(249,115,22,0.55)] hover:bg-orange-400"
       : variant === "secondary"
-        ? "bg-stone-800 text-stone-200 border border-stone-700 hover:bg-stone-700"
-        : "bg-transparent text-stone-400 hover:text-stone-200";
+        ? "border border-[#eadbc4] bg-white text-[#3b2f21] hover:bg-[#fff7eb]"
+        : "bg-transparent text-[#8a7a66] hover:text-[#2f2419]";
 
   return (
     <button

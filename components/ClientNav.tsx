@@ -20,12 +20,18 @@ function extractOrderId(href: string) {
 
 function getOrderDotColor(status: string | null) {
   switch (status) {
-    case "confirmed":   return "bg-emerald-500";
-    case "cooking":     return "bg-violet-500";
-    case "delivering":  return "bg-sky-500";
-    case "canceled":    return "bg-red-500";
-    case "delivered":   return "bg-emerald-400";
-    default:            return "bg-amber-400";
+    case "confirmed":
+      return "bg-emerald-500";
+    case "cooking":
+      return "bg-violet-500";
+    case "delivering":
+      return "bg-sky-500";
+    case "canceled":
+      return "bg-red-500";
+    case "delivered":
+      return "bg-emerald-400";
+    default:
+      return "bg-amber-400";
   }
 }
 
@@ -73,10 +79,7 @@ function IconOrder({ hasDot, dotColor }: { hasDot: boolean; dotColor: string }) 
       {hasDot && (
         <span
           aria-hidden="true"
-          className={clsx(
-            "absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-stone-950",
-            dotColor
-          )}
+          className={clsx("absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-white", dotColor)}
         />
       )}
     </div>
@@ -86,7 +89,7 @@ function IconOrder({ hasDot, dotColor }: { hasDot: boolean; dotColor: string }) 
 export function ClientNav({ menuHref, orderHref }: Props) {
   const pathname = usePathname();
   const lines = useCart((state) => state.lines);
-  const cartCount = useMemo(() => lines.reduce((sum, l) => sum + l.qty, 0), [lines]);
+  const cartCount = useMemo(() => lines.reduce((sum, line) => sum + line.qty, 0), [lines]);
   const [fallbackOrderHref, setFallbackOrderHref] = useState("/order");
   const [activeOrderStatus, setActiveOrderStatus] = useState<string | null>(null);
 
@@ -99,6 +102,7 @@ export function ClientNav({ menuHref, orderHref }: Props) {
       const pendingPayOrderId = getPendingPayOrderId();
       const activeOrderId = getActiveOrderId();
       const lastOrderId = getLastOrderId();
+
       setFallbackOrderHref(
         pendingPayOrderId
           ? `/pay/${pendingPayOrderId}`
@@ -113,9 +117,13 @@ export function ClientNav({ menuHref, orderHref }: Props) {
     syncOrderHref();
     const timer = window.setInterval(syncOrderHref, 1500);
     const onFocus = () => syncOrderHref();
-    const onVisibility = () => { if (document.visibilityState === "visible") syncOrderHref(); };
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "dordoi_pending_pay_order_id" || e.key === "dordoi_active_order_id") syncOrderHref();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") syncOrderHref();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "dordoi_pending_pay_order_id" || event.key === "dordoi_active_order_id") {
+        syncOrderHref();
+      }
     };
 
     window.addEventListener("focus", onFocus);
@@ -142,48 +150,57 @@ export function ClientNav({ menuHref, orderHref }: Props) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const j = (await res.json()) as { status?: string };
-        if (!stopped) setActiveOrderStatus(j.status ?? null);
-      } catch { /* ignore */ }
+        const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { status?: string };
+        if (!stopped) setActiveOrderStatus(payload.status ?? null);
+      } catch {
+        // Ignore network hiccups, nav badge is best-effort.
+      }
     };
 
     void load();
     const timer = window.setInterval(() => void load(), 5000);
-    return () => { stopped = true; window.clearInterval(timer); };
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
   }, [pathname, resolvedOrderHref]);
 
   const hasActiveOrder = activeOrderStatus ? !isHistoryStatus(activeOrderStatus) : false;
   const orderDotColor = getOrderDotColor(activeOrderStatus);
 
-  const isMenu  = pathname.startsWith("/r/");
-  const isCart  = pathname === "/cart";
+  const isMenu = pathname.startsWith("/r/");
+  const isCart = pathname === "/cart";
   const isOrder = pathname === "/order" || pathname.startsWith("/order/") || pathname.startsWith("/pay/");
 
   const tabClass = (active: boolean) =>
     clsx(
-      "relative flex flex-col items-center gap-0.5 px-5 py-2 rounded-xl transition-colors duration-200",
-      active ? "text-orange-500" : "text-stone-500 hover:text-stone-300"
+      "relative flex flex-col items-center gap-0.5 rounded-[18px] px-5 py-2.5 transition-all duration-200",
+      active
+        ? "bg-[#fff4df] text-orange-500 shadow-[0_14px_30px_-24px_rgba(249,115,22,0.55)]"
+        : "text-[#8e7c66] hover:bg-[#fff8ef] hover:text-[#2f2419]"
     );
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-stone-950 border-t border-stone-800/80 pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around px-2">
-        <Link href={menuHref} className={tabClass(isMenu)}>
-          <IconMenu />
-          <span className="text-[10px] font-semibold tracking-wide">Меню</span>
-        </Link>
+    <div className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+10px)]">
+      <div className="mx-auto max-w-md rounded-[26px] border border-[#ecd9bc] bg-white/92 px-2 py-2 shadow-[0_26px_60px_-34px_rgba(190,120,43,0.38)] backdrop-blur">
+        <div className="flex items-center justify-around">
+          <Link href={menuHref} className={tabClass(isMenu)}>
+            <IconMenu />
+            <span className="text-[10px] font-semibold tracking-wide">Меню</span>
+          </Link>
 
-        <Link href="/cart" className={tabClass(isCart)}>
-          <IconCart count={cartCount} />
-          <span className="text-[10px] font-semibold tracking-wide">Корзина</span>
-        </Link>
+          <Link href="/cart" className={tabClass(isCart)}>
+            <IconCart count={cartCount} />
+            <span className="text-[10px] font-semibold tracking-wide">Корзина</span>
+          </Link>
 
-        <Link href={resolvedOrderHref} className={tabClass(isOrder)}>
-          <IconOrder hasDot={hasActiveOrder} dotColor={orderDotColor} />
-          <span className="text-[10px] font-semibold tracking-wide">Заказ</span>
-        </Link>
+          <Link href={resolvedOrderHref} className={tabClass(isOrder)}>
+            <IconOrder hasDot={hasActiveOrder} dotColor={orderDotColor} />
+            <span className="text-[10px] font-semibold tracking-wide">Заказ</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
