@@ -8,8 +8,10 @@ function toErrorMessage(error: unknown) {
 }
 
 export async function GET() {
-  const requiredEnv = ["DATABASE_URL", "ADMIN_USER", "ADMIN_PASS"] as const;
-  const env = Object.fromEntries(requiredEnv.map((key) => [key, Boolean(process.env[key])])) as Record<string, boolean>;
+  const requiredEnv = ["DATABASE_URL"] as const;
+  const env = Object.fromEntries(
+    requiredEnv.map((key) => [key, Boolean(process.env[key])]),
+  ) as Record<string, boolean>;
   const missingEnv = requiredEnv.filter((key) => !process.env[key]);
 
   let dbOk = false;

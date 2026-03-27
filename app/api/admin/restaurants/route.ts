@@ -1,6 +1,7 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { requireAdminRole } from "@/lib/adminAuth";
+import { authenticateDatabaseAdminUser } from "@/lib/adminUsers";
 import { prisma } from "@/lib/prisma";
 import { ensureActiveRestaurant, getRestaurantDisplayName } from "@/lib/restaurant";
 
@@ -66,10 +67,14 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Нет данных для обновления" }, { status: 400 });
   }
 
-  const expectedBankPassword = process.env.ADMIN_BANK_PASS ?? process.env.ADMIN_PASS ?? "";
-  if (expectedBankPassword && bankPassword !== expectedBankPassword) {
+  if (!bankPassword) {
+    return NextResponse.json({ error: "Введите текущий пароль владельца" }, { status: 400 });
+  }
+
+  const identity = await authenticateDatabaseAdminUser(auth.session.user, bankPassword);
+  if (!identity || identity.role !== "owner") {
     return NextResponse.json(
-      { error: "Неверный пароль для изменения банковских данных" },
+      { error: "Неверный текущий пароль владельца" },
       { status: 403 },
     );
   }

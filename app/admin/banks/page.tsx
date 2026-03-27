@@ -88,7 +88,10 @@ export default function AdminBanksPage() {
 
         <Card className="mt-5 p-4">
           <div className="text-sm font-semibold">Номер Mbank</div>
-          <div className="mt-2 text-xs text-black/55">Укажите номер в формате 996XXXXXXXXX. Изменение доступно только владельцу.</div>
+          <div className="mt-2 text-xs text-black/55">
+            Укажите номер в формате 996XXXXXXXXX. Для сохранения нужен текущий пароль
+            владельца из админки.
+          </div>
 
           <input
             className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-3"
@@ -102,7 +105,8 @@ export default function AdminBanksPage() {
           <input
             className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-3"
             type="password"
-            placeholder="Пароль для смены номера"
+            autoComplete="current-password"
+            placeholder="Текущий пароль владельца"
             value={bankPassword}
             onChange={(e) => setBankPassword(e.target.value)}
           />
