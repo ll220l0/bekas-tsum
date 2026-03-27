@@ -51,8 +51,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, url: `/uploads/${fileName}` });
   } catch (error: unknown) {
     console.error("Admin upload failed:", error);
-    const message =
+    let message =
       error instanceof Error && error.message.trim() ? error.message : "Не удалось загрузить файл";
+
+    if (
+      error instanceof Error &&
+      error.message.includes("Cannot use public access on a private store")
+    ) {
+      message =
+        "Vercel Blob store настроен как private. Для фото меню нужен public store.";
+    }
+
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
