@@ -16,6 +16,7 @@ export type OrderHistoryEntry = {
 };
 
 export type SavedLocation = {
+  market: string;
   line: string;
   container: string;
 };
@@ -38,9 +39,7 @@ function isBrowser() {
 
 function getCookie(name: string) {
   if (!isBrowser()) return "";
-  const entry = document.cookie
-    .split("; ")
-    .find((item) => item.startsWith(`${name}=`));
+  const entry = document.cookie.split("; ").find((item) => item.startsWith(`${name}=`));
   return entry ? decodeURIComponent(entry.slice(name.length + 1)) : "";
 }
 
@@ -185,16 +184,18 @@ export function clearActiveOrderId(orderId?: string) {
 export function getSavedLocation(): SavedLocation {
   const parsed = safeParse<Partial<SavedLocation>>(getCookie(LOCATION_COOKIE), {});
   return {
+    market: typeof parsed.market === "string" ? parsed.market : "Дордой",
     line: typeof parsed.line === "string" ? parsed.line : "",
-    container: typeof parsed.container === "string" ? parsed.container : ""
+    container: typeof parsed.container === "string" ? parsed.container : "",
   };
 }
 
 export function setSavedLocation(location: SavedLocation) {
+  const market = location.market.trim() || "Дордой";
   const line = location.line.trim();
   const container = location.container.trim();
   if (!line && !container) return;
-  setCookie(LOCATION_COOKIE, JSON.stringify({ line, container }));
+  setCookie(LOCATION_COOKIE, JSON.stringify({ market, line, container }));
 }
 
 export function getFrequentMenuItems(restaurantSlug: string) {
@@ -216,24 +217,25 @@ export function getFrequentMenuItems(restaurantSlug: string) {
 const SAVED_ADDRESSES_KEY = "dordoi_saved_addresses";
 const SAVED_ADDRESSES_LIMIT = 3;
 
-export type SavedAddress = { line: string; container: string; label?: string };
+export type SavedAddress = { market: string; line: string; container: string; label?: string };
 
 export function getSavedAddresses(): SavedAddress[] {
   if (typeof window === "undefined") return [];
   const raw = window.localStorage.getItem(SAVED_ADDRESSES_KEY);
   return safeParse<SavedAddress[]>(raw ?? "", []).filter(
-    (a) => a.line?.trim() || a.container?.trim()
+    (a) => a.market?.trim() || a.line?.trim() || a.container?.trim(),
   );
 }
 
 export function addSavedAddress(addr: SavedAddress) {
   if (typeof window === "undefined") return;
+  const market = addr.market.trim() || "Дордой";
   const line = addr.line.trim();
   const container = addr.container.trim();
   if (!line && !container) return;
   const existing = getSavedAddresses().filter(
-    (a) => !(a.line === line && a.container === container)
+    (a) => !(a.market === market && a.line === line && a.container === container),
   );
-  const next = [{ line, container }, ...existing].slice(0, SAVED_ADDRESSES_LIMIT);
+  const next = [{ market, line, container }, ...existing].slice(0, SAVED_ADDRESSES_LIMIT);
   window.localStorage.setItem(SAVED_ADDRESSES_KEY, JSON.stringify(next));
 }

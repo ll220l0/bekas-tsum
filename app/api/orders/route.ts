@@ -20,12 +20,14 @@ function readDuplicateWindowSeconds() {
 }
 
 function normalizeLocation(location: unknown) {
-  if (!location || typeof location !== "object") return { line: "", container: "" };
+  if (!location || typeof location !== "object") return { market: "", line: "", container: "" };
 
-  const candidate = location as { line?: unknown; container?: unknown };
+  const candidate = location as { market?: unknown; line?: unknown; container?: unknown };
   return {
+    market: typeof candidate.market === "string" ? candidate.market.trim().toLowerCase() : "",
     line: typeof candidate.line === "string" ? candidate.line.trim().toLowerCase() : "",
-    container: typeof candidate.container === "string" ? candidate.container.trim().toLowerCase() : ""
+    container:
+      typeof candidate.container === "string" ? candidate.container.trim().toLowerCase() : "",
   };
 }
 
@@ -53,19 +55,19 @@ async function findRecentDuplicateOrder(params: {
       paymentMethod: params.dbPaymentMethod,
       customerPhone: params.customerPhone,
       createdAt: { gte: from },
-      status: { in: ["created", "pending_confirmation", "confirmed", "cooking", "delivering"] }
+      status: { in: ["created", "pending_confirmation", "confirmed", "cooking", "delivering"] },
     },
     include: {
       restaurant: true,
       items: {
         select: {
           menuItemId: true,
-          qty: true
-        }
-      }
+          qty: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
-    take: 8
+    take: 8,
   });
 
   const expectedItemsSignature = makeItemsSignature(params.items);
@@ -78,7 +80,11 @@ async function findRecentDuplicateOrder(params: {
       if ((order.comment ?? "").trim() !== expectedComment) return false;
 
       const orderLocation = normalizeLocation(order.location);
-      if (orderLocation.line !== expectedLocation.line || orderLocation.container !== expectedLocation.container) {
+      if (
+        orderLocation.market !== expectedLocation.market ||
+        orderLocation.line !== expectedLocation.line ||
+        orderLocation.container !== expectedLocation.container
+      ) {
         return false;
       }
 
@@ -95,23 +101,32 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const parsed = CreateOrderSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Некорректные данные запроса", details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: "Некорректные данные запроса", details: parsed.error.flatten() },
+        { status: 400 },
+      );
     }
 
-    const { restaurantSlug, items, location, paymentMethod, customerPhone, payerName, comment } = parsed.data;
-    const idempotencyKey = normalizeIdempotencyKey(parsed.data.idempotencyKey || req.headers.get("x-idempotency-key"));
+    const { restaurantSlug, items, location, paymentMethod, customerPhone, payerName, comment } =
+      parsed.data;
+    const idempotencyKey = normalizeIdempotencyKey(
+      parsed.data.idempotencyKey || req.headers.get("x-idempotency-key"),
+    );
 
     if (idempotencyKey) {
       const existing = await prisma.order.findUnique({
         where: { idempotencyKey },
-        include: { restaurant: true }
+        include: { restaurant: true },
       });
 
       if (existing) {
         const bankPayUrl =
           existing.paymentMethod === "cash"
             ? null
-            : buildMbankPayUrl({ totalKgs: existing.totalKgs, bankPhone: existing.restaurant.mbankNumber });
+            : buildMbankPayUrl({
+                totalKgs: existing.totalKgs,
+                bankPhone: existing.restaurant.mbankNumber,
+              });
         return NextResponse.json({ orderId: existing.id, bankPayUrl, created: false });
       }
     }
@@ -124,19 +139,19 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error: "Сейчас высокая нагрузка. Повторите попытку через несколько секунд.",
-          retryAfterSeconds: throttle.retryAfterSeconds
+          retryAfterSeconds: throttle.retryAfterSeconds,
         },
         {
           status: 429,
           headers: {
-            "Retry-After": String(throttle.retryAfterSeconds)
-          }
-        }
+            "Retry-After": String(throttle.retryAfterSeconds),
+          },
+        },
       );
     }
 
     const menuItems = await prisma.menuItem.findMany({
-      where: { restaurantId: restaurant.id, id: { in: items.map((x) => x.menuItemId) } }
+      where: { restaurantId: restaurant.id, id: { in: items.map((x) => x.menuItemId) } },
     });
     const map = new Map(menuItems.map((m) => [m.id, m]));
     const orderLines: Array<{ m: (typeof menuItems)[number]; qty: number }> = [];
@@ -160,20 +175,23 @@ export async function POST(req: Request) {
       totalKgs,
       location,
       items: items.map((item) => ({ menuItemId: item.menuItemId, qty: item.qty })),
-      comment: normalizedComment
+      comment: normalizedComment,
     });
 
     if (duplicateOrder) {
       const bankPayUrl =
         duplicateOrder.paymentMethod === "cash"
           ? null
-          : buildMbankPayUrl({ totalKgs: duplicateOrder.totalKgs, bankPhone: duplicateOrder.restaurant.mbankNumber });
+          : buildMbankPayUrl({
+              totalKgs: duplicateOrder.totalKgs,
+              bankPhone: duplicateOrder.restaurant.mbankNumber,
+            });
 
       return NextResponse.json({
         orderId: duplicateOrder.id,
         bankPayUrl,
         created: false,
-        deduplicated: true
+        deduplicated: true,
       });
     }
 
@@ -198,30 +216,40 @@ export async function POST(req: Request) {
               qty,
               priceKgs: m.priceKgs,
               titleSnap: m.title,
-              photoSnap: m.photoUrl
-            }))
-          }
-        }
+              photoSnap: m.photoUrl,
+            })),
+          },
+        },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && idempotencyKey) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        idempotencyKey
+      ) {
         const existing = await prisma.order.findUnique({
           where: { idempotencyKey },
-          include: { restaurant: true }
+          include: { restaurant: true },
         });
 
         if (existing) {
           const bankPayUrl =
             existing.paymentMethod === "cash"
               ? null
-              : buildMbankPayUrl({ totalKgs: existing.totalKgs, bankPhone: existing.restaurant.mbankNumber });
+              : buildMbankPayUrl({
+                  totalKgs: existing.totalKgs,
+                  bankPhone: existing.restaurant.mbankNumber,
+                });
           return NextResponse.json({ orderId: existing.id, bankPayUrl, created: false });
         }
       }
       throw error;
     }
 
-    const bankPayUrl = dbPaymentMethod === "cash" ? null : buildMbankPayUrl({ totalKgs, bankPhone: restaurant.mbankNumber });
+    const bankPayUrl =
+      dbPaymentMethod === "cash"
+        ? null
+        : buildMbankPayUrl({ totalKgs, bankPhone: restaurant.mbankNumber });
     return NextResponse.json({ orderId: order.id, bankPayUrl, created: true });
   } catch (error: unknown) {
     const apiError = toApiError(error, "Не удалось создать заказ");

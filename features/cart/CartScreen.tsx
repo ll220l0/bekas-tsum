@@ -23,6 +23,7 @@ import { formatKgs } from "@/lib/money";
 
 type PaymentMethod = "bank" | "cash";
 type CreateOrderResponse = { orderId: string; bankPayUrl?: string | null };
+const MARKET_OPTIONS = ["Дордой", "АЗС", "Восток", "Алкан", "Европа"] as const;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ошибка";
@@ -82,6 +83,7 @@ export default function CartScreen() {
 
   const [line, setLine] = useState("");
   const [container, setContainer] = useState("");
+  const [market, setMarket] = useState<(typeof MARKET_OPTIONS)[number]>("Дордой");
   const [customerPhone, setCustomerPhone] = useState("");
   const [comment, setComment] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank");
@@ -89,9 +91,9 @@ export default function CartScreen() {
   const [redirectingTo, setRedirectingTo] = useState<"pay" | "order" | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
-  const [savedAddresses, setSavedAddresses] = useState<Array<{ line: string; container: string }>>(
-    [],
-  );
+  const [savedAddresses, setSavedAddresses] = useState<
+    Array<{ market: string; line: string; container: string }>
+  >([]);
   const submitLockRef = useRef(false);
 
   useEffect(() => {
@@ -99,6 +101,11 @@ export default function CartScreen() {
     setIdempotencyKey(createIdempotencyKey());
     setCustomerPhone(formatKgPhone(getSavedPhone()));
     const savedLocation = getSavedLocation();
+    setMarket(
+      MARKET_OPTIONS.includes(savedLocation.market as (typeof MARKET_OPTIONS)[number])
+        ? (savedLocation.market as (typeof MARKET_OPTIONS)[number])
+        : "Дордой",
+    );
     setLine(savedLocation.line);
     setContainer(savedLocation.container);
     setSavedAddresses(getSavedAddresses());
@@ -109,13 +116,14 @@ export default function CartScreen() {
       JSON.stringify({
         restaurantSlug,
         lines: lines.map((item) => ({ id: item.menuItemId, qty: item.qty })),
+        market,
         line: line.trim(),
         container: container.trim(),
         customerPhone: normalizeKgPhone(customerPhone.trim()) ?? "",
         paymentMethod,
         comment: comment.trim(),
       }),
-    [restaurantSlug, lines, line, container, customerPhone, paymentMethod, comment],
+    [restaurantSlug, lines, market, line, container, customerPhone, paymentMethod, comment],
   );
 
   useEffect(() => {
@@ -192,7 +200,7 @@ export default function CartScreen() {
         paymentMethod,
         customerPhone: phone,
         comment: comment.trim(),
-        location: { line: line.trim(), container: container.trim() },
+        location: { market, line: line.trim(), container: container.trim() },
         items: lines.map((item) => ({ menuItemId: item.menuItemId, qty: item.qty })),
         idempotencyKey,
       };
@@ -223,8 +231,8 @@ export default function CartScreen() {
       });
       setActiveOrderId(payloadJson.orderId);
       setSavedPhone(phone);
-      setSavedLocation({ line: line.trim(), container: container.trim() });
-      addSavedAddress({ line: line.trim(), container: container.trim() });
+      setSavedLocation({ market, line: line.trim(), container: container.trim() });
+      addSavedAddress({ market, line: line.trim(), container: container.trim() });
       clear();
 
       if (paymentMethod === "bank") {
@@ -435,15 +443,24 @@ export default function CartScreen() {
                     key={index}
                     type="button"
                     onClick={() => {
+                      setMarket(
+                        MARKET_OPTIONS.includes(address.market as (typeof MARKET_OPTIONS)[number])
+                          ? (address.market as (typeof MARKET_OPTIONS)[number])
+                          : "Дордой",
+                      );
                       setLine(address.line);
                       setContainer(address.container);
                     }}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
-                      address.line === line && address.container === container
+                      address.market === market &&
+                      address.line === line &&
+                      address.container === container
                         ? "bg-orange-500 text-white"
                         : "bg-gray-50 text-gray-600 border border-gray-200 hover:text-gray-900"
                     }`}
                   >
+                    {address.market || "Дордой"}
+                    {address.line || address.container ? " | " : ""}
                     {address.line ? `Пр. ${address.line}` : ""}
                     {address.line && address.container ? ", " : ""}
                     {address.container ? `К. ${address.container}` : ""}
@@ -451,6 +468,36 @@ export default function CartScreen() {
                 ))}
               </div>
             )}
+
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-gray-500">Рынок</label>
+              <div className="relative">
+                <select
+                  className={`${inputClass} appearance-none pr-10`}
+                  value={market}
+                  onChange={(event) =>
+                    setMarket(event.target.value as (typeof MARKET_OPTIONS)[number])
+                  }
+                >
+                  {MARKET_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-4 inline-flex items-center text-gray-400">
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+                    <path
+                      d="M5.5 7.5L10 12L14.5 7.5"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
