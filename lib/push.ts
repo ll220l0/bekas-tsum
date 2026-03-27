@@ -13,6 +13,7 @@ type PushPayload = {
 };
 
 let vapidConfigured = false;
+const APP_NAME = "Beka's Burger";
 
 function getVapidPublicKey() {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() ?? "";
@@ -50,37 +51,37 @@ function getStatusPayload(orderId: string, status: PushOrderStatus): PushPayload
   const base = {
     url: `/order/${orderId}`,
     orderId,
-    status
+    status,
   };
 
   if (status === "confirmed") {
     return {
       ...base,
-      title: "Dordoi Food",
-      body: "Заказ подтвержден рестораном."
+      title: APP_NAME,
+      body: "Заказ подтвержден рестораном.",
     };
   }
 
   if (status === "delivered") {
     return {
       ...base,
-      title: "Dordoi Food",
-      body: "Заказ отмечен как доставленный."
+      title: APP_NAME,
+      body: "Заказ отмечен как доставленный.",
     };
   }
 
   if (status === "pending_confirmation") {
     return {
       ...base,
-      title: "Dordoi Food",
-      body: "Оплата получена. Ожидаем подтверждения ресторана."
+      title: APP_NAME,
+      body: "Оплата получена. Ожидаем подтверждения ресторана.",
     };
   }
 
   return {
     ...base,
-    title: "Dordoi Food",
-    body: "Заказ отменен."
+    title: APP_NAME,
+    body: "Заказ отменен.",
   };
 }
 
@@ -112,21 +113,21 @@ export async function savePushSubscription(input: {
       where: {
         orderId_endpoint: {
           orderId: input.orderId,
-          endpoint: input.endpoint
-        }
+          endpoint: input.endpoint,
+        },
       },
       create: {
         orderId: input.orderId,
         endpoint: input.endpoint,
         p256dh: input.p256dh,
         auth: input.auth,
-        expirationTime
+        expirationTime,
       },
       update: {
         p256dh: input.p256dh,
         auth: input.auth,
-        expirationTime
-      }
+        expirationTime,
+      },
     });
   } catch (error: unknown) {
     if (isPushStorageMissing(error)) return;
@@ -140,14 +141,14 @@ export async function removePushSubscription(input: { orderId?: string; endpoint
       await prisma.pushSubscription.deleteMany({
         where: {
           orderId: input.orderId,
-          endpoint: input.endpoint
-        }
+          endpoint: input.endpoint,
+        },
       });
       return;
     }
 
     await prisma.pushSubscription.deleteMany({
-      where: { endpoint: input.endpoint }
+      where: { endpoint: input.endpoint },
     });
   } catch (error: unknown) {
     if (isPushStorageMissing(error)) return;
@@ -164,7 +165,7 @@ export async function sendOrderStatusPush(orderId: string, status: PushOrderStat
   try {
     subs = await prisma.pushSubscription.findMany({
       where: { orderId },
-      select: { endpoint: true, p256dh: true, auth: true }
+      select: { endpoint: true, p256dh: true, auth: true },
     });
   } catch (error: unknown) {
     if (isPushStorageMissing(error)) {
@@ -188,15 +189,17 @@ export async function sendOrderStatusPush(orderId: string, status: PushOrderStat
           endpoint: sub.endpoint,
           keys: {
             p256dh: sub.p256dh,
-            auth: sub.auth
-          }
+            auth: sub.auth,
+          },
         },
-        payload
+        payload,
       );
       sent += 1;
     } catch (error: unknown) {
       const statusCode =
-        typeof error === "object" && error !== null && "statusCode" in error ? Number((error as { statusCode?: number }).statusCode) : 0;
+        typeof error === "object" && error !== null && "statusCode" in error
+          ? Number((error as { statusCode?: number }).statusCode)
+          : 0;
       if (statusCode === 404 || statusCode === 410) {
         staleEndpoints.add(sub.endpoint);
       }
@@ -208,8 +211,8 @@ export async function sendOrderStatusPush(orderId: string, status: PushOrderStat
       await prisma.pushSubscription.deleteMany({
         where: {
           orderId,
-          endpoint: { in: [...staleEndpoints] }
-        }
+          endpoint: { in: [...staleEndpoints] },
+        },
       });
     } catch (error: unknown) {
       if (!isPushStorageMissing(error)) {

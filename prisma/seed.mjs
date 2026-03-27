@@ -6,6 +6,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 const DEFAULT_ADMIN_FIRST_NAME = "Admin";
 const DEFAULT_ADMIN_LAST_NAME = "Owner";
 const DEFAULT_ADMIN_PHONE = "996555000000";
+const DEFAULT_RESTAURANT_NAME = "Beka's Burger";
 
 function hashPassword(password) {
   const salt = randomBytes(16);
@@ -71,6 +72,14 @@ async function ensureBaseRestaurant() {
   });
 
   if (activeRestaurant) {
+    if (activeRestaurant.name === "Dordoi Food") {
+      const updated = await prisma.restaurant.update({
+        where: { id: activeRestaurant.id },
+        data: { name: DEFAULT_RESTAURANT_NAME },
+      });
+      console.log(`Updated restaurant brand: ${updated.slug}`);
+      return updated;
+    }
     console.log(`Active restaurant already exists: ${activeRestaurant.slug}`);
     return activeRestaurant;
   }
@@ -78,7 +87,7 @@ async function ensureBaseRestaurant() {
   const restaurant = await prisma.restaurant.create({
     data: {
       slug: "dordoi-food",
-      name: "Dordoi Food",
+      name: DEFAULT_RESTAURANT_NAME,
       qrImageUrl: "/qr/demo-restaurant.png",
       isActive: true,
     },

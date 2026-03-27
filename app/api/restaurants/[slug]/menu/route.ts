@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getRestaurantDisplayName } from "@/lib/restaurant";
 
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -7,8 +8,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
     where: { slug },
     include: {
       categories: { orderBy: { sortOrder: "asc" } },
-      items: { orderBy: { sortOrder: "asc" } }
-    }
+      items: { orderBy: { sortOrder: "asc" } },
+    },
   });
 
   const restaurant =
@@ -19,15 +20,23 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
           orderBy: { createdAt: "asc" },
           include: {
             categories: { orderBy: { sortOrder: "asc" } },
-            items: { orderBy: { sortOrder: "asc" } }
-          }
+            items: { orderBy: { sortOrder: "asc" } },
+          },
         });
 
   if (!restaurant) return NextResponse.json({ error: "Ресторан не найден" }, { status: 404 });
 
   return NextResponse.json({
-    restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug },
-    categories: restaurant.categories.map((c) => ({ id: c.id, title: c.title, sortOrder: c.sortOrder })),
+    restaurant: {
+      id: restaurant.id,
+      name: getRestaurantDisplayName(restaurant.name),
+      slug: restaurant.slug,
+    },
+    categories: restaurant.categories.map((c) => ({
+      id: c.id,
+      title: c.title,
+      sortOrder: c.sortOrder,
+    })),
     items: restaurant.items.map((i) => ({
       id: i.id,
       categoryId: i.categoryId,
@@ -36,8 +45,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
       photoUrl: i.photoUrl,
       priceKgs: i.priceKgs,
       isAvailable: i.isAvailable,
-      sortOrder: i.sortOrder
-    }))
+      sortOrder: i.sortOrder,
+    })),
   });
 }
-

@@ -25,6 +25,7 @@ type MenuResp = {
 
 type MenuItem = MenuResp["items"][number];
 const preloadedImages = new Set<string>();
+const BRAND_LOGO_SRC = "/brand/bekas-burger-logo.jpg";
 
 async function fetchMenu(slug: string): Promise<MenuResp> {
   const response = await fetch(`/api/restaurants/${slug}/menu`, { cache: "no-store" });
@@ -356,24 +357,39 @@ export default function MenuScreen({ slug }: { slug: string }) {
       <div className="mx-auto max-w-md">
         {/* Scrollable header */}
         <div className="pb-3 pt-2">
-          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-500">
-            {isLoading ? (
-              <span className="inline-block h-3 w-12 rounded bg-gray-100 skeleton" />
-            ) : (
-              "Каталог"
-            )}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-500">
+                {isLoading ? (
+                  <span className="inline-block h-3 w-12 rounded bg-gray-100 skeleton" />
+                ) : (
+                  "Каталог"
+                )}
+              </div>
+              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-gray-900">
+                {data?.restaurant?.name ??
+                  (isLoading ? (
+                    <span className="inline-block h-9 w-48 rounded-xl bg-gray-100 skeleton" />
+                  ) : (
+                    "Ресторан"
+                  ))}
+              </h1>
+              <p className="mt-1.5 max-w-[15rem] text-sm text-gray-500">
+                Сочные бургеры и горячие заказы с быстрой доставкой.
+              </p>
+            </div>
+
+            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[26px] border border-white/70 bg-white shadow-[0_16px_34px_-18px_rgba(15,23,42,0.45)]">
+              <Image
+                src={BRAND_LOGO_SRC}
+                alt="Beka's Burger"
+                fill
+                priority
+                sizes="96px"
+                className="object-cover"
+              />
+            </div>
           </div>
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-gray-900">
-            {data?.restaurant?.name ??
-              (isLoading ? (
-                <span className="inline-block h-9 w-48 rounded-xl bg-gray-100 skeleton" />
-              ) : (
-                "Ресторан"
-              ))}
-          </h1>
-          <p className="mt-1.5 text-sm text-gray-500">
-            Свежие блюда с доставкой по контейнерам Дордоя.
-          </p>
         </div>
 
         {/* Sticky search + categories */}

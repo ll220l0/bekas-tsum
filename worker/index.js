@@ -1,8 +1,8 @@
 self.addEventListener("push", (event) => {
   let payload = {
-    title: "Dordoi Food",
+    title: "Beka's Burger",
     body: "Order status updated.",
-    url: "/order"
+    url: "/order",
   };
 
   if (event.data) {
@@ -11,7 +11,7 @@ self.addEventListener("push", (event) => {
       payload = {
         title: typeof parsed?.title === "string" && parsed.title ? parsed.title : payload.title,
         body: typeof parsed?.body === "string" && parsed.body ? parsed.body : payload.body,
-        url: typeof parsed?.url === "string" && parsed.url ? parsed.url : payload.url
+        url: typeof parsed?.url === "string" && parsed.url ? parsed.url : payload.url,
       };
     } catch {
       const text = event.data.text();
@@ -24,8 +24,8 @@ self.addEventListener("push", (event) => {
       body: payload.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/favicon-64.png",
-      data: { url: payload.url }
-    })
+      data: { url: payload.url },
+    }),
   );
 });
 
@@ -42,6 +42,6 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       return self.clients.openWindow(targetUrl);
-    })
+    }),
   );
 });

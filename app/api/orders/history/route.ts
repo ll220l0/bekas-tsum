@@ -3,6 +3,7 @@ import { toApiError } from "@/lib/apiError";
 import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { toClientPaymentMethod } from "@/lib/paymentMethod";
 import { prisma } from "@/lib/prisma";
+import { getRestaurantDisplayName } from "@/lib/restaurant";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export async function GET(req: Request) {
       .slice(0, 30);
 
     if (phone.length < 7 && orderIds.length === 0) {
-      return NextResponse.json({ error: "Требуется телефон или список id заказов" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Требуется телефон или список id заказов" },
+        { status: 400 },
+      );
     }
 
     const whereClauses: Array<Record<string, unknown>> = [];
@@ -32,7 +36,7 @@ export async function GET(req: Request) {
       where,
       include: { restaurant: true, items: true },
       orderBy: { createdAt: "desc" },
-      take: 30
+      take: 30,
     });
 
     return NextResponse.json({
@@ -50,8 +54,8 @@ export async function GET(req: Request) {
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
         restaurant: {
-          name: order.restaurant.name,
-          slug: order.restaurant.slug
+          name: getRestaurantDisplayName(order.restaurant.name),
+          slug: order.restaurant.slug,
         },
         items: order.items.map((x) => ({
           id: x.id,
@@ -59,9 +63,9 @@ export async function GET(req: Request) {
           title: x.titleSnap,
           qty: x.qty,
           priceKgs: x.priceKgs,
-          photoUrl: x.photoSnap
-        }))
-      }))
+          photoUrl: x.photoSnap,
+        })),
+      })),
     });
   } catch (error: unknown) {
     const apiError = toApiError(error, "Не удалось загрузить историю заказов");

@@ -4,6 +4,7 @@ import { requireAdminRole } from "@/lib/adminAuth";
 import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { toClientPaymentMethod } from "@/lib/paymentMethod";
 import { prisma } from "@/lib/prisma";
+import { getRestaurantDisplayName } from "@/lib/restaurant";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET() {
     const orders = await prisma.order.findMany({
       include: { restaurant: true, items: true },
       orderBy: { createdAt: "desc" },
-      take: 200
+      take: 200,
     });
 
     return NextResponse.json({
@@ -31,7 +32,7 @@ export async function GET() {
         paymentCode: o.paymentCode,
         customerPhone: o.customerPhone ?? "",
         comment: o.comment ?? "",
-        restaurant: { name: o.restaurant.name, slug: o.restaurant.slug },
+        restaurant: { name: getRestaurantDisplayName(o.restaurant.name), slug: o.restaurant.slug },
         location: o.location,
         createdAt: o.createdAt,
         updatedAt: o.updatedAt,
@@ -43,12 +44,12 @@ export async function GET() {
           title: x.titleSnap,
           qty: x.qty,
           priceKgs: x.priceKgs,
-          photoUrl: x.photoSnap
+          photoUrl: x.photoSnap,
         })),
-        itemCount: o.items.reduce((s, x) => s + x.qty, 0)
+        itemCount: o.items.reduce((s, x) => s + x.qty, 0),
       })),
       role: auth.session.role,
-      user: auth.session.user
+      user: auth.session.user,
     });
   } catch (error: unknown) {
     const apiError = toApiError(error, "Не удалось загрузить заказы");

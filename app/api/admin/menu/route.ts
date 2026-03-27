@@ -1,6 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/adminAuth";
 import { prisma } from "@/lib/prisma";
+import { getRestaurantDisplayName } from "@/lib/restaurant";
 
 export async function GET(req: Request) {
   const auth = await requireAdminRole(["owner", "operator"]);
@@ -12,13 +13,24 @@ export async function GET(req: Request) {
 
   const restaurant = await prisma.restaurant.findUnique({
     where: { slug },
-    include: { categories: { orderBy: { sortOrder: "asc" } }, items: { orderBy: { sortOrder: "asc" } } }
+    include: {
+      categories: { orderBy: { sortOrder: "asc" } },
+      items: { orderBy: { sortOrder: "asc" } },
+    },
   });
   if (!restaurant) return NextResponse.json({ error: "Ресторан не найден" }, { status: 404 });
 
   return NextResponse.json({
-    restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug },
-    categories: restaurant.categories.map((c) => ({ id: c.id, title: c.title, sortOrder: c.sortOrder })),
+    restaurant: {
+      id: restaurant.id,
+      name: getRestaurantDisplayName(restaurant.name),
+      slug: restaurant.slug,
+    },
+    categories: restaurant.categories.map((c) => ({
+      id: c.id,
+      title: c.title,
+      sortOrder: c.sortOrder,
+    })),
     items: restaurant.items.map((i) => ({
       id: i.id,
       categoryId: i.categoryId,
@@ -27,8 +39,7 @@ export async function GET(req: Request) {
       photoUrl: i.photoUrl,
       priceKgs: i.priceKgs,
       isAvailable: i.isAvailable,
-      sortOrder: i.sortOrder
-    }))
+      sortOrder: i.sortOrder,
+    })),
   });
 }
-

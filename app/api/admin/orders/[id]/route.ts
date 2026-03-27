@@ -4,6 +4,7 @@ import { requireAdminRole } from "@/lib/adminAuth";
 import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { toClientPaymentMethod } from "@/lib/paymentMethod";
 import { prisma } from "@/lib/prisma";
+import { getRestaurantDisplayName } from "@/lib/restaurant";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminRole(["owner", "operator", "courier"]);
@@ -15,7 +16,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const { id } = await params;
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { restaurant: true, items: true }
+      include: { restaurant: true, items: true },
     });
 
     if (!order) {
@@ -41,16 +42,16 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       role: auth.session.role,
       user: auth.session.user,
       restaurant: {
-        name: order.restaurant.name,
-        slug: order.restaurant.slug
+        name: getRestaurantDisplayName(order.restaurant.name),
+        slug: order.restaurant.slug,
       },
       items: order.items.map((x) => ({
         id: x.id,
         title: x.titleSnap,
         qty: x.qty,
         priceKgs: x.priceKgs,
-        photoUrl: x.photoSnap
-      }))
+        photoUrl: x.photoSnap,
+      })),
     });
   } catch (error: unknown) {
     const apiError = toApiError(error, "Не удалось загрузить заказ");

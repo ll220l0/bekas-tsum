@@ -2,7 +2,7 @@
 import type { Prisma } from "@prisma/client";
 import { requireAdminRole } from "@/lib/adminAuth";
 import { prisma } from "@/lib/prisma";
-import { ensureActiveRestaurant } from "@/lib/restaurant";
+import { ensureActiveRestaurant, getRestaurantDisplayName } from "@/lib/restaurant";
 
 const BANK_NUMBER_RE = /^996\d{9}$/;
 
@@ -24,17 +24,17 @@ export async function GET() {
   await ensureActiveRestaurant();
   const restaurants = await prisma.restaurant.findMany({
     where: { isActive: true },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
   });
   return NextResponse.json({
     restaurants: restaurants.map((r) => ({
       id: r.id,
-      name: r.name,
+      name: getRestaurantDisplayName(r.name),
       slug: r.slug,
       mbankNumber: r.mbankNumber ?? "",
       obankNumber: r.obankNumber ?? "",
-      bakaiNumber: r.bakaiNumber ?? ""
-    }))
+      bakaiNumber: r.bakaiNumber ?? "",
+    })),
   });
 }
 
@@ -68,7 +68,10 @@ export async function PATCH(req: Request) {
 
   const expectedBankPassword = process.env.ADMIN_BANK_PASS ?? process.env.ADMIN_PASS ?? "";
   if (expectedBankPassword && bankPassword !== expectedBankPassword) {
-    return NextResponse.json({ error: "Неверный пароль для изменения банковских данных" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Неверный пароль для изменения банковских данных" },
+      { status: 403 },
+    );
   }
 
   const data: Prisma.RestaurantUpdateInput = {};
@@ -76,28 +79,37 @@ export async function PATCH(req: Request) {
   if (hasMbankUpdate) {
     const parsed = validateBankNumber(body?.mbankNumber);
     if (body?.mbankNumber && !parsed) {
-      return NextResponse.json({ error: "Некорректный номер Mbank. Используйте формат 996XXXXXXXXX" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Некорректный номер Mbank. Используйте формат 996XXXXXXXXX" },
+        { status: 400 },
+      );
     }
     data.mbankNumber = parsed;
   }
   if (hasObankUpdate) {
     const parsed = validateBankNumber(body?.obankNumber);
     if (body?.obankNumber && !parsed) {
-      return NextResponse.json({ error: "Некорректный номер O bank. Используйте формат 996XXXXXXXXX" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Некорректный номер O bank. Используйте формат 996XXXXXXXXX" },
+        { status: 400 },
+      );
     }
     data.obankNumber = parsed;
   }
   if (hasBakaiUpdate) {
     const parsed = validateBankNumber(body?.bakaiNumber);
     if (body?.bakaiNumber && !parsed) {
-      return NextResponse.json({ error: "Некорректный номер Bakai. Используйте формат 996XXXXXXXXX" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Некорректный номер Bakai. Используйте формат 996XXXXXXXXX" },
+        { status: 400 },
+      );
     }
     data.bakaiNumber = parsed;
   }
 
   const updated = await prisma.restaurant.update({
     where: { slug },
-    data
+    data,
   });
 
   return NextResponse.json({
@@ -107,8 +119,7 @@ export async function PATCH(req: Request) {
       slug: updated.slug,
       mbankNumber: updated.mbankNumber ?? "",
       obankNumber: updated.obankNumber ?? "",
-      bakaiNumber: updated.bakaiNumber ?? ""
-    }
+      bakaiNumber: updated.bakaiNumber ?? "",
+    },
   });
 }
-
