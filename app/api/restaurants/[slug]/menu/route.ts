@@ -1,30 +1,52 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { listMenuItemsByRestaurant } from "@/lib/menuItemCompat";
 import { prisma } from "@/lib/prisma";
 import { getRestaurantDisplayName } from "@/lib/restaurant";
 
-export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const bySlug = await prisma.restaurant.findUnique({
+async function findRestaurantBySlug(slug: string) {
+  return prisma.restaurant.findUnique({
     where: { slug },
-    include: {
-      categories: { orderBy: { sortOrder: "asc" } },
-      items: { orderBy: { sortOrder: "asc" } },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      isActive: true,
+      createdAt: true,
+      categories: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, title: true, sortOrder: true },
+      },
     },
   });
+}
 
-  const restaurant =
-    bySlug && bySlug.isActive
-      ? bySlug
-      : await prisma.restaurant.findFirst({
-          where: { isActive: true },
-          orderBy: { createdAt: "asc" },
-          include: {
-            categories: { orderBy: { sortOrder: "asc" } },
-            items: { orderBy: { sortOrder: "asc" } },
-          },
-        });
+async function findFirstActiveRestaurant() {
+  return prisma.restaurant.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      isActive: true,
+      createdAt: true,
+      categories: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, title: true, sortOrder: true },
+      },
+    },
+  });
+}
+
+export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const bySlug = await findRestaurantBySlug(slug);
+
+  const restaurant = bySlug && bySlug.isActive ? bySlug : await findFirstActiveRestaurant();
 
   if (!restaurant) return NextResponse.json({ error: "Ресторан не найден" }, { status: 404 });
+
+  const items = await listMenuItemsByRestaurant(restaurant.id);
 
   return NextResponse.json({
     restaurant: {
@@ -37,7 +59,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
       title: c.title,
       sortOrder: c.sortOrder,
     })),
-    items: restaurant.items.map((i) => ({
+    items: items.map((i) => ({
       id: i.id,
       categoryId: i.categoryId,
       title: i.title,

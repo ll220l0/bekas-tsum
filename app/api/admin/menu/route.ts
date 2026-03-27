@@ -1,5 +1,6 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/adminAuth";
+import { listMenuItemsByRestaurant } from "@/lib/menuItemCompat";
 import { prisma } from "@/lib/prisma";
 import { getRestaurantDisplayName } from "@/lib/restaurant";
 
@@ -13,12 +14,19 @@ export async function GET(req: Request) {
 
   const restaurant = await prisma.restaurant.findUnique({
     where: { slug },
-    include: {
-      categories: { orderBy: { sortOrder: "asc" } },
-      items: { orderBy: { sortOrder: "asc" } },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      categories: {
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, title: true, sortOrder: true },
+      },
     },
   });
   if (!restaurant) return NextResponse.json({ error: "Ресторан не найден" }, { status: 404 });
+
+  const items = await listMenuItemsByRestaurant(restaurant.id);
 
   return NextResponse.json({
     restaurant: {
@@ -31,7 +39,7 @@ export async function GET(req: Request) {
       title: c.title,
       sortOrder: c.sortOrder,
     })),
-    items: restaurant.items.map((i) => ({
+    items: items.map((i) => ({
       id: i.id,
       categoryId: i.categoryId,
       title: i.title,

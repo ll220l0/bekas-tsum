@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { toApiError } from "@/lib/apiError";
 import { buildMbankPayUrl } from "@/lib/mbankLink";
+import { listMenuItemsByIds } from "@/lib/menuItemCompat";
 import { checkOrderCreateThrottle, expireStaleOrders } from "@/lib/orderLifecycle";
 import { makePaymentCode } from "@/lib/paymentCode";
 import { toDbPaymentMethod } from "@/lib/paymentMethod";
@@ -150,9 +151,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const menuItems = await prisma.menuItem.findMany({
-      where: { restaurantId: restaurant.id, id: { in: items.map((x) => x.menuItemId) } },
-    });
+    const menuItems = await listMenuItemsByIds(
+      restaurant.id,
+      items.map((item) => item.menuItemId),
+    );
     const map = new Map(menuItems.map((m) => [m.id, m]));
     const orderLines: Array<{ m: (typeof menuItems)[number]; qty: number }> = [];
     for (const x of items) {

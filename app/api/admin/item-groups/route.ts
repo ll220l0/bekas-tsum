@@ -17,7 +17,10 @@ export async function DELETE(req: Request) {
   }
 
   const ids = Array.from(new Set(parsed.data.ids));
-  const items = await prisma.menuItem.findMany({ where: { id: { in: ids } } });
+  const items = await prisma.menuItem.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
   if (items.length !== ids.length) {
     return NextResponse.json({ error: "Часть вариантов не найдена" }, { status: 404 });
   }
