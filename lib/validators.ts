@@ -1,11 +1,21 @@
 ﻿import { z } from "zod";
 
-export const DeliveryLocationSchema = z.object({
-  market: z.enum(["Цум", "Гум", "Олд Бишкек", "Берен Голд"]).default("Цум"),
-  line: z.string().min(1).max(32),
-  container: z.string().min(1).max(32),
-  landmark: z.string().max(80).optional().or(z.literal("")),
-});
+export const DeliveryLocationSchema = z
+  .object({
+    market: z.enum(["Цум", "Гум", "Олд Бишкек", "Берен Голд"]).default("Цум"),
+    line: z.string().max(32),
+    container: z.string().min(1).max(32),
+    landmark: z.string().max(80).optional().or(z.literal("")),
+  })
+  .superRefine((location, ctx) => {
+    if (location.market !== "Олд Бишкек" && location.line.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["line"],
+        message: "Этаж обязателен",
+      });
+    }
+  });
 
 export const CreateOrderSchema = z.object({
   restaurantSlug: z.string().min(1),

@@ -24,6 +24,7 @@ import { formatKgs } from "@/lib/money";
 type PaymentMethod = "bank" | "cash";
 type CreateOrderResponse = { orderId: string; bankPayUrl?: string | null };
 const MARKET_OPTIONS = ["Цум", "Гум", "Олд Бишкек", "Берен Голд"] as const;
+const OLD_BISHKEK = "Олд Бишкек";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ошибка";
@@ -50,6 +51,25 @@ function formatKgPhone(phone: string) {
 function createIdempotencyKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `ord_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function isOldBishkekMarket(market: string) {
+  return market === OLD_BISHKEK;
+}
+
+function formatSavedAddress(address: { market?: string; line?: string; container?: string }) {
+  const isOldBishkek = isOldBishkekMarket(address.market ?? "");
+  const parts = [address.market || "Цум"];
+
+  if (!isOldBishkek && address.line) {
+    parts.push(`Эт. ${address.line}`);
+  }
+
+  if (address.container) {
+    parts.push(`Бутик ${address.container}`);
+  }
+
+  return parts.join(" | ");
 }
 
 const inputClass =
@@ -95,6 +115,7 @@ export default function CartScreen() {
     Array<{ market: string; line: string; container: string }>
   >([]);
   const submitLockRef = useRef(false);
+  const isOldBishkek = isOldBishkekMarket(market);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -131,18 +152,33 @@ export default function CartScreen() {
     setIdempotencyKey(createIdempotencyKey());
   }, [isHydrated, requestSignature]);
 
+  useEffect(() => {
+    if (isOldBishkek && line) {
+      setLine("");
+    }
+  }, [isOldBishkek, line]);
+
   const canSubmit = useMemo(
     () =>
       Boolean(
         isHydrated &&
         restaurantSlug &&
         lines.length > 0 &&
-        line.trim().length > 0 &&
+        (isOldBishkek || line.trim().length > 0) &&
         container.trim().length > 0 &&
         normalizeKgPhone(customerPhone) &&
         !loading,
       ),
-    [container, customerPhone, isHydrated, line, lines.length, loading, restaurantSlug],
+    [
+      container,
+      customerPhone,
+      isHydrated,
+      isOldBishkek,
+      line,
+      lines.length,
+      loading,
+      restaurantSlug,
+    ],
   );
 
   const lastOrderSuggestion = useMemo(() => {
@@ -182,8 +218,8 @@ export default function CartScreen() {
     }
 
     const phone = normalizeKgPhone(customerPhone.trim());
-    if (!line.trim() || !container.trim()) {
-      toast.error("Заполните проход и контейнер");
+    if ((!isOldBishkek && !line.trim()) || !container.trim()) {
+      toast.error(isOldBishkek ? "Заполните бутик" : "Заполните этаж и бутик");
       return;
     }
     if (!phone) {
@@ -200,7 +236,11 @@ export default function CartScreen() {
         paymentMethod,
         customerPhone: phone,
         comment: comment.trim(),
-        location: { market, line: line.trim(), container: container.trim() },
+        location: {
+          market,
+          line: isOldBishkek ? "" : line.trim(),
+          container: container.trim(),
+        },
         items: lines.map((item) => ({ menuItemId: item.menuItemId, qty: item.qty })),
         idempotencyKey,
       };
@@ -231,8 +271,9 @@ export default function CartScreen() {
       });
       setActiveOrderId(payloadJson.orderId);
       setSavedPhone(phone);
-      setSavedLocation({ market, line: line.trim(), container: container.trim() });
-      addSavedAddress({ market, line: line.trim(), container: container.trim() });
+      const normalizedLine = isOldBishkek ? "" : line.trim();
+      setSavedLocation({ market, line: normalizedLine, container: container.trim() });
+      addSavedAddress({ market, line: normalizedLine, container: container.trim() });
       clear();
 
       if (paymentMethod === "bank") {
@@ -459,11 +500,7 @@ export default function CartScreen() {
                         : "bg-gray-50 text-gray-600 border border-gray-200 hover:text-gray-900"
                     }`}
                   >
-                    {address.market || "Цум"}
-                    {address.line || address.container ? " | " : ""}
-                    {address.line ? `Пр. ${address.line}` : ""}
-                    {address.line && address.container ? ", " : ""}
-                    {address.container ? `К. ${address.container}` : ""}
+                    {formatSavedAddress(address)}
                   </button>
                 ))}
               </div>
@@ -501,23 +538,23 @@ export default function CartScreen() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${isOldBishkek ? "grid-cols-1" : "grid-cols-2"}`}>
+              {!isOldBishkek && (
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-gray-500">Этаж</label>
+                  <input
+                    className={inputClass}
+                    placeholder="Напр. 2"
+                    value={line}
+                    onChange={(event) => setLine(event.target.value)}
+                  />
+                </div>
+              )}
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-gray-500">Проход</label>
+                <label className="mb-1 block text-[11px] font-semibold text-gray-500">Бутик</label>
                 <input
                   className={inputClass}
-                  placeholder="Напр. 12"
-                  value={line}
-                  onChange={(event) => setLine(event.target.value)}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-gray-500">
-                  Контейнер
-                </label>
-                <input
-                  className={inputClass}
-                  placeholder="Напр. А-15"
+                  placeholder="Напр. A-15"
                   value={container}
                   onChange={(event) => setContainer(event.target.value)}
                 />

@@ -28,6 +28,17 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ошибка";
 }
 
+async function readJsonSafely<T>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Сервер вернул некорректный ответ");
+  }
+}
+
 async function resizeImage(file: File) {
   const url = URL.createObjectURL(file);
 
@@ -178,8 +189,8 @@ export default function AdminMenuPage() {
       formData.append("file", resized);
 
       const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
-      const j = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !j.url) throw new Error(j.error ?? "Не удалось загрузить фото");
+      const j = await readJsonSafely<{ url?: string; error?: string }>(res);
+      if (!res.ok || !j?.url) throw new Error(j?.error ?? "Не удалось загрузить фото");
 
       setItemPhoto(j.url);
       toast.success("Фото загружено");

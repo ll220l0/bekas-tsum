@@ -46,9 +46,38 @@ type HistoryOrder = OrderData;
 const WAITING_STATUSES = new Set(["confirmed", "cooking", "delivering"]);
 const CANCEL_WINDOW_MS = 5 * 60 * 1000;
 const DELIVERY_STEPS = ["Подтвержден", "Готовится", "Передан курьеру", "Доставлен"] as const;
+const OLD_BISHKEK = "Олд Бишкек";
 
 const card = "rounded-2xl bg-white shadow-card";
 const inset = "rounded-xl bg-gray-50";
+
+function formatLocation(location?: {
+  market?: string;
+  line?: string;
+  container?: string;
+  landmark?: string;
+}) {
+  if (!location) return "Бутик -";
+
+  const isOldBishkek = location.market === OLD_BISHKEK;
+  const parts: string[] = [];
+
+  if (location.market) {
+    parts.push(`Торговый центр ${location.market}`);
+  }
+
+  if (!isOldBishkek) {
+    parts.push(`Этаж ${location.line ?? "-"}`);
+  }
+
+  parts.push(`Бутик ${location.container ?? "-"}`);
+
+  if (location.landmark) {
+    parts.push(`(${location.landmark})`);
+  }
+
+  return parts.join(", ");
+}
 
 function Check({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -574,19 +603,7 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
 
                 {/* Location */}
                 <div className={`${inset} mt-2 px-4 py-3 text-sm text-gray-900`}>
-                  {data?.location?.market ? (
-                    <>
-                      Торговый центр{" "}
-                      <span className="font-bold text-gray-900">{data.location.market}</span>,{" "}
-                    </>
-                  ) : null}
-                  Проход{" "}
-                  <span className="font-bold text-gray-900">{data?.location?.line ?? "-"}</span>,
-                  контейнер{" "}
-                  <span className="font-bold text-gray-900">
-                    {data?.location?.container ?? "-"}
-                  </span>
-                  {data?.location?.landmark ? ` (${data.location.landmark})` : ""}
+                  {formatLocation(data?.location)}
                 </div>
 
                 {/* Comment */}
@@ -703,11 +720,7 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
                             {paymentMethodLabel(order.paymentMethod)}
                           </div>
                           <div className="mt-1 text-xs text-gray-500">
-                            {order.location?.market
-                              ? `Торговый центр ${order.location.market}, `
-                              : ""}
-                            Проход {order.location?.line ?? "-"}, контейнер{" "}
-                            {order.location?.container ?? "-"}
+                            {formatLocation(order.location)}
                           </div>
                           {order.comment ? (
                             <div className="mt-1 text-xs text-gray-500">

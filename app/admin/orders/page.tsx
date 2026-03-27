@@ -42,6 +42,26 @@ type AdminOrder = {
 };
 
 type AdminOrdersResponse = { orders: AdminOrder[]; role?: AdminRole; user?: string };
+const OLD_BISHKEK = "Олд Бишкек";
+
+function formatLocation(location?: {
+  market?: string;
+  line?: string;
+  container?: string;
+  landmark?: string;
+}) {
+  if (!location) return "Бутик -";
+
+  const isOldBishkek = location.market === OLD_BISHKEK;
+  const parts: Array<string> = [];
+
+  if (location.market) parts.push(`Торговый центр ${location.market}`);
+  if (!isOldBishkek) parts.push(`Этаж ${location.line || "-"}`);
+  parts.push(`Бутик ${location.container || "-"}`);
+  if (location.landmark) parts.push(`(${location.landmark})`);
+
+  return parts.join(", ");
+}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Не удалось получить заказы";
@@ -340,14 +360,7 @@ export default function AdminOrdersPage() {
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-white p-3 text-sm text-black/75">
-            {order.location?.market ? (
-              <>
-                Торговый центр <b>{order.location.market}</b>,{" "}
-              </>
-            ) : null}
-            Проход <b>{order.location?.line || "-"}</b>, контейнер{" "}
-            <b>{order.location?.container || "-"}</b>
-            {order.location?.landmark ? <> ({order.location.landmark})</> : null}
+            {formatLocation(order.location)}
           </div>
 
           {order.comment ? (

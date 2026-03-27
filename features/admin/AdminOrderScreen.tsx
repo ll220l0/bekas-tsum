@@ -39,6 +39,27 @@ type AdminOrderData = {
   items: OrderItem[];
 };
 
+const OLD_BISHKEK = "Олд Бишкек";
+
+function formatLocation(location?: {
+  market?: string;
+  line?: string;
+  container?: string;
+  landmark?: string;
+}) {
+  if (!location) return "Бутик -";
+
+  const isOldBishkek = location.market === OLD_BISHKEK;
+  const parts: Array<string> = [];
+
+  if (location.market) parts.push(`Торговый центр ${location.market}`);
+  if (!isOldBishkek) parts.push(`Этаж ${location.line || "-"}`);
+  parts.push(`Бутик ${location.container || "-"}`);
+  if (location.landmark) parts.push(`(${location.landmark})`);
+
+  return parts.join(", ");
+}
+
 function normalizePhone(phone: string) {
   const hasPlus = phone.trim().startsWith("+");
   const digits = phone.replace(/\D/g, "");
@@ -258,16 +279,7 @@ export default function AdminOrderScreen({ orderId }: { orderId: string }) {
             </div>
           </div>
 
-          <div className="mt-3 text-sm text-black/70">
-            {data?.location?.market ? (
-              <>
-                Торговый центр <b>{data.location.market}</b>,{" "}
-              </>
-            ) : null}
-            Проход <b>{data?.location?.line || "-"}</b>, контейнер{" "}
-            <b>{data?.location?.container || "-"}</b>
-            {data?.location?.landmark ? <> ({data.location.landmark})</> : null}
-          </div>
+          <div className="mt-3 text-sm text-black/70">{formatLocation(data?.location)}</div>
           {data?.comment ? (
             <div className="mt-1 text-sm text-black/70">Комментарий: {data.comment}</div>
           ) : null}
