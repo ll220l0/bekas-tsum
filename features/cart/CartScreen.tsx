@@ -23,7 +23,7 @@ import { formatKgs } from "@/lib/money";
 
 type PaymentMethod = "bank" | "cash";
 type CreateOrderResponse = { orderId: string; bankPayUrl?: string | null };
-const MARKET_OPTIONS = ["Дордой", "АЗС", "Восток", "Алкан", "Европа"] as const;
+const MARKET_OPTIONS = ["Цум", "Гум", "Олд Бишкек", "Берен Голд"] as const;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ошибка";
@@ -83,7 +83,7 @@ export default function CartScreen() {
 
   const [line, setLine] = useState("");
   const [container, setContainer] = useState("");
-  const [market, setMarket] = useState<(typeof MARKET_OPTIONS)[number]>("Дордой");
+  const [market, setMarket] = useState<(typeof MARKET_OPTIONS)[number]>("Цум");
   const [customerPhone, setCustomerPhone] = useState("");
   const [comment, setComment] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bank");
@@ -104,7 +104,7 @@ export default function CartScreen() {
     setMarket(
       MARKET_OPTIONS.includes(savedLocation.market as (typeof MARKET_OPTIONS)[number])
         ? (savedLocation.market as (typeof MARKET_OPTIONS)[number])
-        : "Дордой",
+        : "Цум",
     );
     setLine(savedLocation.line);
     setContainer(savedLocation.container);
@@ -446,7 +446,7 @@ export default function CartScreen() {
                       setMarket(
                         MARKET_OPTIONS.includes(address.market as (typeof MARKET_OPTIONS)[number])
                           ? (address.market as (typeof MARKET_OPTIONS)[number])
-                          : "Дордой",
+                          : "Цум",
                       );
                       setLine(address.line);
                       setContainer(address.container);
@@ -459,7 +459,7 @@ export default function CartScreen() {
                         : "bg-gray-50 text-gray-600 border border-gray-200 hover:text-gray-900"
                     }`}
                   >
-                    {address.market || "Дордой"}
+                    {address.market || "Цум"}
                     {address.line || address.container ? " | " : ""}
                     {address.line ? `Пр. ${address.line}` : ""}
                     {address.line && address.container ? ", " : ""}
@@ -470,7 +470,9 @@ export default function CartScreen() {
             )}
 
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-gray-500">Рынок</label>
+              <label className="mb-1 block text-[11px] font-semibold text-gray-500">
+                Торговый центр
+              </label>
               <div className="relative">
                 <select
                   className={`${inputClass} appearance-none pr-10`}

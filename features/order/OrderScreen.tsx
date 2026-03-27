@@ -576,8 +576,8 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
                 <div className={`${inset} mt-2 px-4 py-3 text-sm text-gray-900`}>
                   {data?.location?.market ? (
                     <>
-                      Рынок <span className="font-bold text-gray-900">{data.location.market}</span>
-                      ,{" "}
+                      Торговый центр{" "}
+                      <span className="font-bold text-gray-900">{data.location.market}</span>,{" "}
                     </>
                   ) : null}
                   Проход{" "}
@@ -703,7 +703,9 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
                             {paymentMethodLabel(order.paymentMethod)}
                           </div>
                           <div className="mt-1 text-xs text-gray-500">
-                            {order.location?.market ? `Рынок ${order.location.market}, ` : ""}
+                            {order.location?.market
+                              ? `Торговый центр ${order.location.market}, `
+                              : ""}
                             Проход {order.location?.line ?? "-"}, контейнер{" "}
                             {order.location?.container ?? "-"}
                           </div>

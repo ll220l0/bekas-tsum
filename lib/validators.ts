@@ -1,7 +1,7 @@
 ﻿import { z } from "zod";
 
 export const DeliveryLocationSchema = z.object({
-  market: z.enum(["Дордой", "АЗС", "Восток", "Алкан", "Европа"]).default("Дордой"),
+  market: z.enum(["Цум", "Гум", "Олд Бишкек", "Берен Голд"]).default("Цум"),
   line: z.string().min(1).max(32),
   container: z.string().min(1).max(32),
   landmark: z.string().max(80).optional().or(z.literal("")),

@@ -184,14 +184,14 @@ export function clearActiveOrderId(orderId?: string) {
 export function getSavedLocation(): SavedLocation {
   const parsed = safeParse<Partial<SavedLocation>>(getCookie(LOCATION_COOKIE), {});
   return {
-    market: typeof parsed.market === "string" ? parsed.market : "Дордой",
+    market: typeof parsed.market === "string" ? parsed.market : "Цум",
     line: typeof parsed.line === "string" ? parsed.line : "",
     container: typeof parsed.container === "string" ? parsed.container : "",
   };
 }
 
 export function setSavedLocation(location: SavedLocation) {
-  const market = location.market.trim() || "Дордой";
+  const market = location.market.trim() || "Цум";
   const line = location.line.trim();
   const container = location.container.trim();
   if (!line && !container) return;
@@ -229,7 +229,7 @@ export function getSavedAddresses(): SavedAddress[] {
 
 export function addSavedAddress(addr: SavedAddress) {
   if (typeof window === "undefined") return;
-  const market = addr.market.trim() || "Дордой";
+  const market = addr.market.trim() || "Цум";
   const line = addr.line.trim();
   const container = addr.container.trim();
   if (!line && !container) return;

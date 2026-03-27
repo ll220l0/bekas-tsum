@@ -342,7 +342,7 @@ export default function AdminOrdersPage() {
           <div className="rounded-2xl border border-black/10 bg-white p-3 text-sm text-black/75">
             {order.location?.market ? (
               <>
-                Рынок <b>{order.location.market}</b>,{" "}
+                Торговый центр <b>{order.location.market}</b>,{" "}
               </>
             ) : null}
             Проход <b>{order.location?.line || "-"}</b>, контейнер{" "}

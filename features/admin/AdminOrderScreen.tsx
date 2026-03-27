@@ -261,7 +261,7 @@ export default function AdminOrderScreen({ orderId }: { orderId: string }) {
           <div className="mt-3 text-sm text-black/70">
             {data?.location?.market ? (
               <>
-                Рынок <b>{data.location.market}</b>,{" "}
+                Торговый центр <b>{data.location.market}</b>,{" "}
               </>
             ) : null}
             Проход <b>{data?.location?.line || "-"}</b>, контейнер{" "}
