@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -24,8 +23,22 @@ type MenuResp = {
 };
 
 type MenuItem = MenuResp["items"][number];
+type DrinkVariant = MenuItem & { variantLabel: string };
+type MenuDisplayEntry =
+  | { type: "item"; item: MenuItem }
+  | {
+      type: "drink-group";
+      key: string;
+      title: string;
+      description: string;
+      photoUrl: string;
+      variants: DrinkVariant[];
+    };
+
 const preloadedImages = new Set<string>();
 const BRAND_LOGO_SRC = "/brand/bekas-burger-logo.jpg";
+const DRINKS_CATEGORY_TITLE = "Напитки";
+const DRINK_VARIANT_SUFFIX_RE = /\s+(1,5л|1л|0,5л|ж\/б)$/i;
 
 async function fetchMenu(slug: string): Promise<MenuResp> {
   const response = await fetch(`/api/restaurants/${slug}/menu`, { cache: "no-store" });
@@ -48,6 +61,31 @@ function clamp2(): CSSProperties {
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
   };
+}
+
+function getDrinkVariantMeta(title: string) {
+  const match = title.match(DRINK_VARIANT_SUFFIX_RE);
+  if (!match) return null;
+
+  return {
+    baseTitle: title.slice(0, -match[0].length).trim(),
+    variantLabel: match[1].toLowerCase() === "ж/б" ? "ж/б" : match[1],
+  };
+}
+
+function getDrinkVariantSortOrder(label: string) {
+  if (label === "0,5л") return 0;
+  if (label === "1л") return 1;
+  if (label === "1,5л") return 2;
+  if (label === "ж/б") return 3;
+  return 9;
+}
+
+function formatPriceRange(prices: number[]) {
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  if (minPrice === maxPrice) return formatKgs(minPrice);
+  return `от ${formatKgs(minPrice)}`;
 }
 
 function QtyStepper({ qty, onInc, onDec }: { qty: number; onInc: () => void; onDec: () => void }) {
@@ -89,6 +127,119 @@ function SkeletonItem({ delay = 0 }: { delay?: number }) {
           <div className="h-5 w-20 rounded-lg bg-gray-100 skeleton" />
           <div className="h-10 w-10 rounded-full bg-gray-100 skeleton" />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DrinkGroupCard({
+  title,
+  description,
+  photoUrl,
+  variants,
+  animationDelay,
+  qtyMap,
+  onOpen,
+  onAdd,
+  onInc,
+  onDec,
+}: {
+  title: string;
+  description: string;
+  photoUrl: string;
+  variants: DrinkVariant[];
+  animationDelay: number;
+  qtyMap: Map<string, number>;
+  onOpen: (item: MenuItem) => void;
+  onAdd: (item: MenuItem) => void;
+  onInc: (itemId: string) => void;
+  onDec: (itemId: string) => void;
+}) {
+  return (
+    <div
+      className="motion-fade-up rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] transition-transform duration-200 hover:-translate-y-0.5"
+      style={{ animationDelay: `${animationDelay}ms` }}
+    >
+      <div className="flex gap-4">
+        <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-xl bg-gray-100">
+          <Image src={photoUrl} alt={title} fill className="object-cover" sizes="100px" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-[15px] font-bold leading-snug text-gray-900">{title}</h3>
+              <p className="mt-1 text-[13px] leading-snug text-gray-500">{description}</p>
+            </div>
+            <div className="shrink-0 rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-500">
+              {formatPriceRange(variants.map((variant) => variant.priceKgs))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        {variants.map((variant) => {
+          const qty = qtyMap.get(variant.id) ?? 0;
+
+          return (
+            <div
+              key={variant.id}
+              className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 ${
+                variant.isAvailable ? "border-gray-200 bg-gray-50" : "border-gray-200 bg-gray-100/80"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onOpen(variant)}
+                onMouseEnter={() => warmImage(variant.photoUrl)}
+                onTouchStart={() => warmImage(variant.photoUrl)}
+                onFocus={() => warmImage(variant.photoUrl)}
+                className="min-w-0 flex-1 text-left focus:outline-none"
+                aria-label={`Подробнее: ${title}, ${variant.variantLabel}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+                    {variant.variantLabel}
+                  </span>
+                  {!variant.isAvailable ? (
+                    <span className="text-[11px] font-semibold text-gray-400">нет в наличии</span>
+                  ) : null}
+                </div>
+                {variant.description ? (
+                  <div
+                    className="mt-1 text-[12px] leading-snug text-gray-500"
+                    style={{ ...clamp2(), WebkitLineClamp: 1 }}
+                  >
+                    {variant.description}
+                  </div>
+                ) : null}
+              </button>
+
+              <div className="flex shrink-0 items-center gap-3">
+                <div className="text-sm font-bold text-orange-500">{formatKgs(variant.priceKgs)}</div>
+                {variant.isAvailable ? (
+                  qty > 0 ? (
+                    <QtyStepper qty={qty} onDec={() => onDec(variant.id)} onInc={() => onInc(variant.id)} />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onAdd(variant)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500 text-xl font-bold text-white shadow-[0_4px_12px_-4px_rgba(249,115,22,0.5)] active:scale-90"
+                      aria-label={`Добавить ${title}, ${variant.variantLabel}`}
+                    >
+                      +
+                    </button>
+                  )
+                ) : (
+                  <div className="rounded-full bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+                    скоро
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -270,11 +421,74 @@ export default function MenuScreen({ slug }: { slug: string }) {
       : data.items;
 
     return data.categories
-      .map((category) => ({
-        category,
-        items: filteredItems.filter((item) => item.categoryId === category.id),
-      }))
-      .filter((entry) => entry.items.length > 0);
+      .map((category) => {
+        const categoryItems = filteredItems.filter((item) => item.categoryId === category.id);
+        if (categoryItems.length === 0) return { category, entries: [] as MenuDisplayEntry[] };
+
+        if (category.title !== DRINKS_CATEGORY_TITLE) {
+          return {
+            category,
+            entries: categoryItems.map((item) => ({ type: "item" as const, item })),
+          };
+        }
+
+        const groupedDrinks = new Map<string, DrinkVariant[]>();
+        const entries: MenuDisplayEntry[] = [];
+
+        for (const item of categoryItems) {
+          const meta = getDrinkVariantMeta(item.title);
+          if (!meta) {
+            entries.push({ type: "item", item });
+            continue;
+          }
+
+          const existingVariants = groupedDrinks.get(meta.baseTitle);
+          if (existingVariants) {
+            existingVariants.push({ ...item, variantLabel: meta.variantLabel });
+            continue;
+          }
+
+          groupedDrinks.set(meta.baseTitle, [{ ...item, variantLabel: meta.variantLabel }]);
+          entries.push({
+            type: "drink-group",
+            key: meta.baseTitle,
+            title: meta.baseTitle,
+            description: "",
+            photoUrl: item.photoUrl,
+            variants: [],
+          });
+        }
+
+        return {
+          category,
+          entries: entries.map((entry) => {
+            if (entry.type !== "drink-group") return entry;
+
+            const variants = [...(groupedDrinks.get(entry.key) ?? [])].sort((left, right) => {
+              const orderDiff =
+                getDrinkVariantSortOrder(left.variantLabel) -
+                getDrinkVariantSortOrder(right.variantLabel);
+              if (orderDiff !== 0) return orderDiff;
+              return left.priceKgs - right.priceKgs;
+            });
+            const labels = variants.map((variant) => variant.variantLabel);
+
+            return {
+              ...entry,
+              photoUrl:
+                variants.find((variant) => variant.isAvailable)?.photoUrl ??
+                variants[0]?.photoUrl ??
+                entry.photoUrl,
+              variants,
+              description:
+                labels.length > 1
+                  ? `Выберите объем: ${labels.join(", ")}`
+                  : `Объем: ${labels[0] ?? "доступен"}`,
+            };
+          }),
+        };
+      })
+      .filter((entry) => entry.entries.length > 0);
   }, [data, searchQuery]);
 
   useEffect(() => {
@@ -496,7 +710,7 @@ export default function MenuScreen({ slug }: { slug: string }) {
               </div>
             </div>
           ) : (
-            groupedItems.map(({ category, items }, categoryIndex) => (
+            groupedItems.map(({ category, entries }, categoryIndex) => (
               <section
                 key={category.id}
                 ref={(node) => {
@@ -508,14 +722,33 @@ export default function MenuScreen({ slug }: { slug: string }) {
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900">{category.title}</h2>
                   <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-500 shadow-soft">
-                    {items.length}
+                    {entries.length}
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  {items.map((item, itemIndex) => {
-                    const qty = qtyMap.get(item.id) ?? 0;
+                  {entries.map((entry, itemIndex) => {
                     const animationIndex = categoryIndex * 3 + itemIndex;
+                    if (entry.type !== "item") {
+                      return (
+                        <DrinkGroupCard
+                          key={entry.key}
+                          title={entry.title}
+                          description={entry.description}
+                          photoUrl={entry.photoUrl}
+                          variants={entry.variants}
+                          animationDelay={Math.min(animationIndex * 45, 280)}
+                          qtyMap={qtyMap}
+                          onOpen={setSelectedItem}
+                          onAdd={addToCart}
+                          onInc={inc}
+                          onDec={dec}
+                        />
+                      );
+                    }
+
+                    const item = entry.item;
+                    const qty = qtyMap.get(item.id) ?? 0;
 
                     return (
                       <div
