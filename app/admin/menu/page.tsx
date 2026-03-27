@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Button, Card, Photo } from "@/components/ui";
+import { groupMenuEntries, parseLegacyVariantTitle } from "@/lib/menuVariants";
 import { formatKgs } from "@/lib/money";
 
 type Restaurant = {
@@ -17,12 +18,43 @@ type Item = {
   id: string;
   categoryId: string;
   title: string;
+  variantGroupId?: string | null;
+  variantGroupTitle?: string | null;
+  variantLabel?: string | null;
   description: string;
   photoUrl: string;
   priceKgs: number;
   isAvailable: boolean;
+  sortOrder?: number;
 };
 type AvailabilityFilter = "all" | "available" | "hidden";
+type ItemMode = "single" | "variants";
+type VariantDraft = {
+  key: string;
+  id?: string;
+  label: string;
+  price: string;
+  isAvailable: boolean;
+};
+
+function createVariantDraft(overrides: Partial<VariantDraft> = {}): VariantDraft {
+  return {
+    key:
+      overrides.key ??
+      `variant-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    label: overrides.label ?? "",
+    price: overrides.price ?? "",
+    isAvailable: overrides.isAvailable ?? true,
+    id: overrides.id,
+  };
+}
+
+function formatPriceRange(prices: number[]) {
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+  if (minPrice === maxPrice) return formatKgs(minPrice);
+  return `от ${formatKgs(minPrice)}`;
+}
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ошибка";
@@ -86,7 +118,10 @@ export default function AdminMenuPage() {
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
 
   const [catTitle, setCatTitle] = useState("");
+  const [itemMode, setItemMode] = useState<ItemMode>("single");
   const [itemId, setItemId] = useState<string | null>(null);
+  const [itemGroupId, setItemGroupId] = useState<string | null>(null);
+  const [sourceItemIds, setSourceItemIds] = useState<string[]>([]);
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [itemCategoryId, setItemCategoryId] = useState("");
   const [itemTitle, setItemTitle] = useState("");
@@ -94,6 +129,7 @@ export default function AdminMenuPage() {
   const [itemPhoto, setItemPhoto] = useState("");
   const [itemPrice, setItemPrice] = useState("");
   const [itemAvail, setItemAvail] = useState(true);
+  const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -160,24 +196,24 @@ export default function AdminMenuPage() {
     });
   }, [availabilityFilter, filterCategoryId, items, searchQuery]);
 
-  const groupedItems = useMemo(
-    () =>
-      categories
-        .map((category) => ({
-          category,
-          items: filteredItems.filter((item) => item.categoryId === category.id),
-        }))
-        .filter((entry) => (filterCategoryId === "all" ? entry.items.length > 0 : true)),
-    [categories, filteredItems, filterCategoryId],
+  const groupedItems = useMemo(() => groupMenuEntries(categories, filteredItems), [categories, filteredItems]);
+
+  const visibleEntryCount = useMemo(
+    () => groupedItems.reduce((count, entry) => count + entry.entries.length, 0),
+    [groupedItems],
   );
 
   function resetItemForm() {
+    setItemMode("single");
     setItemId(null);
+    setItemGroupId(null);
+    setSourceItemIds([]);
     setItemTitle("");
     setItemDesc("");
     setItemPhoto("");
     setItemPrice("");
     setItemAvail(true);
+    setVariantDrafts([]);
     setItemCategoryId(categories[0]?.id ?? "");
   }
 
@@ -223,6 +259,63 @@ export default function AdminMenuPage() {
     }
   }
 
+  function switchToVariantMode() {
+    if (itemMode === "variants") return;
+
+    const legacyVariant = itemTitle.trim() ? parseLegacyVariantTitle(itemTitle.trim()) : null;
+    const firstLabel = legacyVariant?.variantLabel ?? "0,5л";
+    const secondLabel = firstLabel === "0,5л" ? "1л" : "1,5л";
+
+    setItemMode("variants");
+    setItemGroupId(null);
+    setSourceItemIds(itemId ? [itemId] : []);
+    if (legacyVariant?.groupTitle) {
+      setItemTitle(legacyVariant.groupTitle);
+    }
+    setVariantDrafts((current) =>
+      current.length > 0
+        ? current
+        : [
+            createVariantDraft({
+              id: itemId ?? undefined,
+              label: firstLabel,
+              price: itemPrice,
+              isAvailable: itemAvail,
+            }),
+            createVariantDraft({ label: secondLabel }),
+          ],
+    );
+  }
+
+  function switchToSingleMode() {
+    if (sourceItemIds.length > 1) return;
+
+    const [firstVariant] = variantDrafts;
+    setItemMode("single");
+    setItemGroupId(null);
+    setItemId(firstVariant?.id ?? itemId);
+    setSourceItemIds(firstVariant?.id ? [firstVariant.id] : []);
+    setItemPrice(firstVariant?.price ?? itemPrice);
+    setItemAvail(firstVariant?.isAvailable ?? itemAvail);
+    setVariantDrafts([]);
+  }
+
+  function updateVariantDraft(key: string, patch: Partial<VariantDraft>) {
+    setVariantDrafts((current) =>
+      current.map((variant) => (variant.key === key ? { ...variant, ...patch } : variant)),
+    );
+  }
+
+  function addVariantDraft() {
+    setVariantDrafts((current) => [...current, createVariantDraft()]);
+  }
+
+  function removeVariantDraft(key: string) {
+    setVariantDrafts((current) =>
+      current.length <= 2 ? current : current.filter((variant) => variant.key !== key),
+    );
+  }
+
   function deleteCategory(id: string) {
     const cat = categories.find((c) => c.id === id);
     const count = categoryItemCount.get(id) ?? 0;
@@ -244,22 +337,87 @@ export default function AdminMenuPage() {
       toast.error("Выбери категорию");
       return;
     }
-    if (!itemPrice.trim()) {
-      toast.error("Укажите цену");
-      return;
-    }
 
     try {
-      const payload = {
-        id: itemId ?? undefined,
-        restaurantSlug,
-        categoryId: itemCategoryId,
-        title: itemTitle.trim(),
-        description: itemDesc.trim(),
-        photoUrl: itemPhoto,
-        priceKgs: Number(itemPrice),
-        isAvailable: Boolean(itemAvail),
-      };
+      let payload:
+        | {
+            mode: "single";
+            id?: string;
+            restaurantSlug: string;
+            categoryId: string;
+            title: string;
+            description: string;
+            photoUrl: string;
+            priceKgs: number;
+            isAvailable: boolean;
+          }
+        | {
+            mode: "variants";
+            groupId?: string;
+            sourceItemIds?: string[];
+            restaurantSlug: string;
+            categoryId: string;
+            title: string;
+            description: string;
+            photoUrl: string;
+            variants: Array<{
+              id?: string;
+              label: string;
+              priceKgs: number;
+              isAvailable: boolean;
+            }>;
+          };
+
+      if (itemMode === "single") {
+        if (!itemPrice.trim()) {
+          toast.error("Укажите цену");
+          return;
+        }
+
+        payload = {
+          mode: "single",
+          id: itemId ?? undefined,
+          restaurantSlug,
+          categoryId: itemCategoryId,
+          title: itemTitle.trim(),
+          description: itemDesc.trim(),
+          photoUrl: itemPhoto,
+          priceKgs: Number(itemPrice),
+          isAvailable: Boolean(itemAvail),
+        };
+      } else {
+        const normalizedVariants = variantDrafts.map((variant) => ({
+          id: variant.id,
+          label: variant.label.trim(),
+          priceKgs: Number(variant.price),
+          isAvailable: variant.isAvailable,
+        }));
+
+        if (normalizedVariants.length < 2) {
+          toast.error("Добавь минимум два варианта");
+          return;
+        }
+        if (normalizedVariants.some((variant) => !variant.label)) {
+          toast.error("У каждого варианта должно быть название");
+          return;
+        }
+        if (normalizedVariants.some((variant) => !Number.isFinite(variant.priceKgs))) {
+          toast.error("Укажи цену для каждого варианта");
+          return;
+        }
+
+        payload = {
+          mode: "variants",
+          groupId: itemGroupId ?? undefined,
+          sourceItemIds,
+          restaurantSlug,
+          categoryId: itemCategoryId,
+          title: itemTitle.trim(),
+          description: itemDesc.trim(),
+          photoUrl: itemPhoto,
+          variants: normalizedVariants,
+        };
+      }
 
       const res = await fetch("/api/admin/items", {
         method: "POST",
@@ -269,7 +427,15 @@ export default function AdminMenuPage() {
       const j = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(j.error ?? "Ошибка");
 
-      toast.success(itemId ? "Блюдо обновлено" : "Блюдо создано");
+      toast.success(
+        itemMode === "variants"
+          ? itemGroupId || sourceItemIds.length > 0
+            ? "Модель обновлена"
+            : "Модель создана"
+          : itemId
+            ? "Блюдо обновлено"
+            : "Блюдо создано",
+      );
       resetItemForm();
       setItemModalOpen(false);
       await loadMenu(restaurantSlug);
@@ -312,14 +478,65 @@ export default function AdminMenuPage() {
     });
   }
 
+  function deleteItemGroup(
+    entry: Extract<(typeof groupedItems)[number]["entries"][number], { type: "group" }>,
+  ) {
+    setConfirmDialog({
+      open: true,
+      message: `Удалить модель "${entry.title}" со всеми ${entry.variants.length} вариантами?`,
+      onConfirm: async () => {
+        const res = await fetch("/api/admin/item-groups", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ids: entry.sourceIds }),
+        });
+        const j = (await res.json()) as { error?: string };
+        if (!res.ok) toast.error(j.error ?? "Ошибка");
+        else toast.success("Модель удалена");
+        await loadMenu(restaurantSlug);
+      },
+    });
+  }
+
   function editItem(item: Item) {
+    setItemMode("single");
     setItemId(item.id);
+    setItemGroupId(null);
+    setSourceItemIds(item.id ? [item.id] : []);
     setItemCategoryId(item.categoryId);
     setItemTitle(item.title);
     setItemDesc(item.description ?? "");
     setItemPhoto(item.photoUrl);
     setItemPrice(String(item.priceKgs));
     setItemAvail(item.isAvailable);
+    setVariantDrafts([]);
+    setItemModalOpen(true);
+  }
+
+  function editItemGroup(
+    entry: Extract<(typeof groupedItems)[number]["entries"][number], { type: "group" }>,
+    categoryId: string,
+  ) {
+    setItemMode("variants");
+    setItemId(null);
+    setItemGroupId(entry.groupId ?? null);
+    setSourceItemIds(entry.sourceIds);
+    setItemCategoryId(categoryId);
+    setItemTitle(entry.title);
+    setItemDesc(entry.description ?? "");
+    setItemPhoto(entry.photoUrl);
+    setItemPrice("");
+    setItemAvail(true);
+    setVariantDrafts(
+      entry.variants.map((variant) =>
+        createVariantDraft({
+          id: variant.id,
+          label: variant.resolvedVariantLabel,
+          price: String(variant.priceKgs),
+          isAvailable: variant.isAvailable,
+        }),
+      ),
+    );
     setItemModalOpen(true);
   }
 
@@ -353,6 +570,14 @@ export default function AdminMenuPage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [closeItemModal, itemModalOpen]);
+
+  const variantPriceValues = useMemo(
+    () =>
+      variantDrafts
+        .map((variant) => Number(variant.price))
+        .filter((price) => Number.isFinite(price)),
+    [variantDrafts],
+  );
 
   return (
     <main className="min-h-screen p-5">
@@ -408,7 +633,7 @@ export default function AdminMenuPage() {
                   Блюд: {items.length}
                 </span>
                 <span className="rounded-full border border-black/10 bg-white px-2 py-1 text-black/65">
-                  В выдаче: {filteredItems.length}
+                  В выдаче: {visibleEntryCount}
                 </span>
               </div>
             </div>
@@ -523,81 +748,181 @@ export default function AdminMenuPage() {
                   По текущим фильтрам блюд не найдено.
                 </div>
               ) : (
-                groupedItems.map(({ category, items: categoryItems }) => (
+                groupedItems.map(({ category, entries }) => (
                   <section key={category.id}>
                     <div className="flex items-center justify-between">
                       <div className="text-xl font-bold">{category.title}</div>
                       <span className="rounded-full border border-black/10 bg-white px-2 py-1 text-xs font-semibold text-black/60">
-                        {categoryItems.length} шт.
+                        {entries.length} шт.
                       </span>
                     </div>
                     <div className="mt-3 space-y-3">
-                      {categoryItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="rounded-2xl border border-black/10 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
-                        >
-                          <div className="flex gap-3">
-                            <Photo src={item.photoUrl} alt={item.title} />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-[15px] font-semibold leading-snug break-words">
-                                    {item.title}
+                      {entries.map((entry) =>
+                        entry.type === "item" ? (
+                          <div
+                            key={entry.item.id}
+                            className="rounded-2xl border border-black/10 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
+                          >
+                            <div className="flex gap-3">
+                              <Photo src={entry.item.photoUrl} alt={entry.item.title} />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-[15px] font-semibold leading-snug break-words">
+                                      {entry.item.title}
+                                    </div>
+                                    <div className="mt-1 text-sm text-black/55 break-words">
+                                      {entry.item.description}
+                                    </div>
                                   </div>
-                                  <div className="mt-1 text-sm text-black/55 break-words">
-                                    {item.description}
+                                  <div className="shrink-0 whitespace-nowrap text-right text-[15px] font-extrabold">
+                                    {formatKgs(entry.item.priceKgs)}
                                   </div>
                                 </div>
-                                <div className="shrink-0 whitespace-nowrap text-right text-[15px] font-extrabold">
-                                  {formatKgs(item.priceKgs)}
-                                </div>
-                              </div>
 
-                              <div className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <label className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-2 py-1.5 text-sm">
-                                  <span className="text-black/60">Наличие</span>
-                                  <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={item.isAvailable}
-                                    onClick={() =>
-                                      void toggleAvailability(item.id, !item.isAvailable)
-                                    }
-                                    className={`relative h-7 w-12 rounded-full transition ${item.isAvailable ? "bg-emerald-500" : "bg-slate-300"}`}
-                                  >
+                                <div className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <label className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-2 py-1.5 text-sm">
+                                    <span className="text-black/60">Наличие</span>
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={entry.item.isAvailable}
+                                      onClick={() =>
+                                        void toggleAvailability(entry.item.id, !entry.item.isAvailable)
+                                      }
+                                      className={`relative h-7 w-12 rounded-full transition ${entry.item.isAvailable ? "bg-emerald-500" : "bg-slate-300"}`}
+                                    >
+                                      <span
+                                        className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${
+                                          entry.item.isAvailable ? "left-[1.35rem]" : "left-0.5"
+                                        }`}
+                                      />
+                                    </button>
                                     <span
-                                      className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${
-                                        item.isAvailable ? "left-[1.35rem]" : "left-0.5"
-                                      }`}
-                                    />
-                                  </button>
-                                  <span
-                                    className={`font-semibold ${item.isAvailable ? "text-emerald-700" : "text-rose-700"}`}
-                                  >
-                                    {item.isAvailable ? "В наличии" : "Скрыто"}
-                                  </span>
-                                </label>
+                                      className={`font-semibold ${entry.item.isAvailable ? "text-emerald-700" : "text-rose-700"}`}
+                                    >
+                                      {entry.item.isAvailable ? "В наличии" : "Скрыто"}
+                                    </span>
+                                  </label>
 
-                                <div className="flex w-full justify-center gap-2 sm:w-auto">
-                                  <button
-                                    className="rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm font-semibold text-black/75 transition hover:bg-black/5"
-                                    onClick={() => editItem(item)}
-                                  >
-                                    Редактировать
-                                  </button>
-                                  <button
-                                    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
-                                    onClick={() => void deleteItem(item.id)}
-                                  >
-                                    Удалить
-                                  </button>
+                                  <div className="flex w-full justify-center gap-2 sm:w-auto">
+                                    <button
+                                      className="rounded-xl border border-black/10 bg-white px-3 py-1.5 text-sm font-semibold text-black/75 transition hover:bg-black/5"
+                                      onClick={() => editItem(entry.item)}
+                                    >
+                                      Редактировать
+                                    </button>
+                                    <button
+                                      className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                                      onClick={() => void deleteItem(entry.item.id)}
+                                    >
+                                      Удалить
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ) : (
+                          <div
+                            key={entry.key}
+                            className="rounded-[28px] border border-black/10 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+                          >
+                            <div className="flex gap-3">
+                              <Photo
+                                src={entry.photoUrl}
+                                alt={entry.title}
+                                className="h-24 w-24 rounded-2xl"
+                                sizes="96px"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <div className="text-[17px] font-extrabold leading-snug break-words">
+                                        {entry.title}
+                                      </div>
+                                      <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-600">
+                                        {entry.variants.length} варианта
+                                      </span>
+                                    </div>
+                                    <div className="mt-1 text-sm text-black/55 break-words">
+                                      {entry.variants.length > 1
+                                        ? `Один товар, общая фото-карточка и выбор из вариантов: ${entry.variants.map((variant) => variant.resolvedVariantLabel).join(", ")}`
+                                        : entry.description}
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0 rounded-full bg-black px-3 py-1 text-sm font-extrabold text-white">
+                                    {formatPriceRange(entry.variants.map((variant) => variant.priceKgs))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 space-y-2.5">
+                              {entry.variants.map((variant) => (
+                                <div
+                                  key={variant.id}
+                                  className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-slate-50/80 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-black/70">
+                                        {variant.resolvedVariantLabel}
+                                      </span>
+                                      <span className="text-sm font-semibold text-black/80">
+                                        {formatKgs(variant.priceKgs)}
+                                      </span>
+                                      {!variant.isAvailable && (
+                                        <span className="rounded-full bg-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-700">
+                                          скрыт
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="mt-1 text-xs text-black/45 break-words">
+                                      {variant.title}
+                                    </div>
+                                  </div>
+
+                                  <label className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-2 py-1.5 text-sm">
+                                    <span className="text-black/60">Наличие</span>
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={variant.isAvailable}
+                                      onClick={() =>
+                                        void toggleAvailability(variant.id, !variant.isAvailable)
+                                      }
+                                      className={`relative h-7 w-12 rounded-full transition ${variant.isAvailable ? "bg-emerald-500" : "bg-slate-300"}`}
+                                    >
+                                      <span
+                                        className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${
+                                          variant.isAvailable ? "left-[1.35rem]" : "left-0.5"
+                                        }`}
+                                      />
+                                    </button>
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                              <button
+                                className="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/75 transition hover:bg-black/5"
+                                onClick={() => editItemGroup(entry, category.id)}
+                              >
+                                Редактировать модель
+                              </button>
+                              <button
+                                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                                onClick={() => void deleteItemGroup(entry)}
+                              >
+                                Удалить модель
+                              </button>
+                            </div>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </section>
                 ))
@@ -619,14 +944,20 @@ export default function AdminMenuPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="text-lg font-extrabold">
-                  {itemId ? "Редактирование блюда" : "Новое блюдо"}
+                  {itemMode === "variants"
+                    ? itemGroupId || sourceItemIds.length > 0
+                      ? "Редактирование модели"
+                      : "Новая модель с вариантами"
+                    : itemId
+                      ? "Редактирование блюда"
+                      : "Новая позиция"}
                 </div>
                 <div className="mt-1 text-xs text-black/55">
-                  Заполните поля и сразу проверьте предпросмотр справа.
+                  Общие данные задаются один раз, а цены и наличие можно разнести по вариантам.
                 </div>
               </div>
               <div className="flex w-full items-center gap-2 sm:w-auto">
-                {itemId && (
+                {(itemId || itemGroupId || sourceItemIds.length > 0) && (
                   <button
                     className="flex-1 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/70 sm:flex-none"
                     onClick={resetItemForm}
@@ -643,8 +974,37 @@ export default function AdminMenuPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
-              <div className="space-y-2">
+            <div className="mt-4 inline-flex w-full rounded-2xl border border-black/10 bg-white p-1">
+              <button
+                type="button"
+                onClick={switchToSingleMode}
+                disabled={itemMode === "variants" && sourceItemIds.length > 1}
+                className={`flex-1 rounded-[14px] px-4 py-3 text-sm font-semibold transition ${
+                  itemMode === "single" ? "bg-black text-white" : "text-black/65"
+                } ${itemMode === "variants" && sourceItemIds.length > 1 ? "cursor-not-allowed opacity-40" : ""}`}
+              >
+                Обычная позиция
+              </button>
+              <button
+                type="button"
+                onClick={switchToVariantMode}
+                className={`flex-1 rounded-[14px] px-4 py-3 text-sm font-semibold transition ${
+                  itemMode === "variants" ? "bg-orange-500 text-white" : "text-black/65"
+                }`}
+              >
+                Модель с вариантами
+              </button>
+            </div>
+
+            {itemMode === "variants" && sourceItemIds.length > 1 && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Эта карточка уже сохранена как модель с несколькими вариантами. Назад в одиночную
+                позицию её лучше не сворачивать, чтобы не потерять варианты.
+              </div>
+            )}
+
+            <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="space-y-3">
                 <select
                   className="w-full rounded-xl border border-black/10 bg-white px-3 py-3"
                   value={itemCategoryId}
@@ -658,7 +1018,7 @@ export default function AdminMenuPage() {
                 </select>
                 <input
                   className="w-full rounded-xl border border-black/10 bg-white px-3 py-3"
-                  placeholder="Название блюда"
+                  placeholder={itemMode === "variants" ? "Название модели" : "Название блюда"}
                   value={itemTitle}
                   onChange={(e) => setItemTitle(e.target.value)}
                 />
@@ -668,19 +1028,6 @@ export default function AdminMenuPage() {
                   value={itemDesc}
                   onChange={(e) => setItemDesc(e.target.value)}
                 />
-                <div className="flex items-center gap-2">
-                  <input
-                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-3"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="цена"
-                    value={itemPrice}
-                    onChange={(e) => setItemPrice(e.target.value.replace(/[^\d]/g, ""))}
-                  />
-                  <div className="shrink-0 rounded-xl border border-black/10 bg-white px-3 py-3 text-sm font-semibold text-black/70">
-                    сом
-                  </div>
-                </div>
                 <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-white/80 bg-gradient-to-b from-white to-slate-50 p-3 text-sm shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:shadow-[0_14px_28px_rgba(15,23,42,0.14)]">
                   <span className="inline-flex items-center rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
                     + Фото
@@ -695,25 +1042,121 @@ export default function AdminMenuPage() {
                     }}
                   />
                 </label>
-                <label className="inline-flex w-fit items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
-                  <span className="text-black/60">Наличие</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={itemAvail}
-                    onClick={() => setItemAvail((prev) => !prev)}
-                    className={`relative h-7 w-12 rounded-full transition ${itemAvail ? "bg-emerald-500" : "bg-slate-300"}`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${itemAvail ? "left-[1.35rem]" : "left-0.5"}`}
-                    />
-                  </button>
-                  <span
-                    className={`font-semibold ${itemAvail ? "text-emerald-700" : "text-rose-700"}`}
-                  >
-                    {itemAvail ? "В наличии" : "Скрыто"}
-                  </span>
-                </label>
+
+                {itemMode === "single" ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-3"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="цена"
+                        value={itemPrice}
+                        onChange={(e) => setItemPrice(e.target.value.replace(/[^\d]/g, ""))}
+                      />
+                      <div className="shrink-0 rounded-xl border border-black/10 bg-white px-3 py-3 text-sm font-semibold text-black/70">
+                        сом
+                      </div>
+                    </div>
+                    <label className="inline-flex w-fit items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
+                      <span className="text-black/60">Наличие</span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={itemAvail}
+                        onClick={() => setItemAvail((prev) => !prev)}
+                        className={`relative h-7 w-12 rounded-full transition ${itemAvail ? "bg-emerald-500" : "bg-slate-300"}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${itemAvail ? "left-[1.35rem]" : "left-0.5"}`}
+                        />
+                      </button>
+                      <span
+                        className={`font-semibold ${itemAvail ? "text-emerald-700" : "text-rose-700"}`}
+                      >
+                        {itemAvail ? "В наличии" : "Скрыто"}
+                      </span>
+                    </label>
+                  </>
+                ) : (
+                  <div className="rounded-[24px] border border-black/10 bg-slate-50/70 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-bold">Варианты</div>
+                        <div className="text-xs text-black/55">
+                          Один товар, общее фото и отдельные цены/наличие для каждого варианта.
+                        </div>
+                      </div>
+                      <Button className="px-4 py-2 text-sm" onClick={addVariantDraft}>
+                        + Вариант
+                      </Button>
+                    </div>
+
+                    <div className="mt-3 space-y-3">
+                      {variantDrafts.map((variant, index) => (
+                        <div
+                          key={variant.key}
+                          className="rounded-2xl border border-black/10 bg-white p-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-sm font-semibold text-black/70">
+                              Вариант {index + 1}
+                            </div>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 disabled:opacity-40"
+                              disabled={variantDrafts.length <= 2}
+                              onClick={() => removeVariantDraft(variant.key)}
+                            >
+                              Удалить
+                            </button>
+                          </div>
+
+                          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+                            <input
+                              className="w-full rounded-xl border border-black/10 bg-white px-3 py-3"
+                              placeholder="Название варианта: 0,5л / 1л / ж/б"
+                              value={variant.label}
+                              onChange={(e) =>
+                                updateVariantDraft(variant.key, { label: e.target.value })
+                              }
+                            />
+                            <input
+                              className="w-full rounded-xl border border-black/10 bg-white px-3 py-3"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="цена"
+                              value={variant.price}
+                              onChange={(e) =>
+                                updateVariantDraft(variant.key, {
+                                  price: e.target.value.replace(/[^\d]/g, ""),
+                                })
+                              }
+                            />
+                            <label className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
+                              <span className="text-black/60">Наличие</span>
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={variant.isAvailable}
+                                onClick={() =>
+                                  updateVariantDraft(variant.key, {
+                                    isAvailable: !variant.isAvailable,
+                                  })
+                                }
+                                className={`relative h-7 w-12 rounded-full transition ${variant.isAvailable ? "bg-emerald-500" : "bg-slate-300"}`}
+                              >
+                                <span
+                                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition ${variant.isAvailable ? "left-[1.35rem]" : "left-0.5"}`}
+                                />
+                              </button>
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -738,14 +1181,48 @@ export default function AdminMenuPage() {
                   )}
                   <div className="mt-2">
                     <div className="text-sm font-semibold break-words">
-                      {itemTitle || "Название блюда"}
+                      {itemTitle || (itemMode === "variants" ? "Название модели" : "Название блюда")}
                     </div>
                     <div className="mt-1 text-xs text-black/55 break-words">
                       {itemDesc || "Короткое описание блюда"}
                     </div>
-                    <div className="mt-2 text-sm font-extrabold">
-                      {formatKgs(Number(itemPrice) || 0)}
-                    </div>
+                    {itemMode === "single" ? (
+                      <div className="mt-2 text-sm font-extrabold">
+                        {formatKgs(Number(itemPrice) || 0)}
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        <div className="rounded-full bg-black px-3 py-1 text-xs font-extrabold text-white">
+                          {formatPriceRange(
+                            variantPriceValues.length > 0 ? variantPriceValues : [0],
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {variantDrafts.map((variant) => (
+                            <div
+                              key={variant.key}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 bg-slate-50 px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-black/70">
+                                  {variant.label || "Вариант"}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold">
+                                  {formatKgs(Number(variant.price) || 0)}
+                                </div>
+                                <div
+                                  className={`text-[11px] font-semibold ${variant.isAvailable ? "text-emerald-700" : "text-rose-700"}`}
+                                >
+                                  {variant.isAvailable ? "в наличии" : "скрыт"}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -767,16 +1244,25 @@ export default function AdminMenuPage() {
                   !itemCategoryId ||
                   !itemTitle.trim() ||
                   !itemPhoto ||
-                  !itemPrice.trim() ||
+                  (itemMode === "single"
+                    ? !itemPrice.trim()
+                    : variantDrafts.length < 2 ||
+                      variantDrafts.some(
+                        (variant) => !variant.label.trim() || !variant.price.trim(),
+                      )) ||
                   uploadingPhoto
                 }
                 onClick={() => void upsertItem()}
               >
                 {uploadingPhoto
                   ? "Загружаем фото..."
-                  : itemId
-                    ? "Сохранить блюдо"
-                    : "Создать блюдо"}
+                  : itemMode === "variants"
+                    ? itemGroupId || sourceItemIds.length > 0
+                      ? "Сохранить модель"
+                      : "Создать модель"
+                    : itemId
+                      ? "Сохранить блюдо"
+                      : "Создать блюдо"}
               </Button>
             </div>
           </Card>

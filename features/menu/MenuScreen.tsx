@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useQuery } from "@tanstack/react-query";
 import { ClientNav } from "@/components/ClientNav";
 import { useCart } from "@/lib/cartStore";
+import { groupMenuEntries, type MenuVariant } from "@/lib/menuVariants";
 import { formatKgs } from "@/lib/money";
 
 type MenuResp = {
@@ -15,30 +16,21 @@ type MenuResp = {
     id: string;
     categoryId: string;
     title: string;
+    variantGroupId?: string | null;
+    variantGroupTitle?: string | null;
+    variantLabel?: string | null;
     description: string;
     photoUrl: string;
     priceKgs: number;
     isAvailable: boolean;
+    sortOrder?: number;
   }[];
 };
 
 type MenuItem = MenuResp["items"][number];
-type DrinkVariant = MenuItem & { variantLabel: string };
-type MenuDisplayEntry =
-  | { type: "item"; item: MenuItem }
-  | {
-      type: "drink-group";
-      key: string;
-      title: string;
-      description: string;
-      photoUrl: string;
-      variants: DrinkVariant[];
-    };
 
 const preloadedImages = new Set<string>();
 const BRAND_LOGO_SRC = "/brand/bekas-burger-logo.jpg";
-const DRINKS_CATEGORY_TITLE = "Напитки";
-const DRINK_VARIANT_SUFFIX_RE = /\s+(1,5л|1л|0,5л|ж\/б)$/i;
 
 async function fetchMenu(slug: string): Promise<MenuResp> {
   const response = await fetch(`/api/restaurants/${slug}/menu`, { cache: "no-store" });
@@ -61,24 +53,6 @@ function clamp2(): CSSProperties {
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
   };
-}
-
-function getDrinkVariantMeta(title: string) {
-  const match = title.match(DRINK_VARIANT_SUFFIX_RE);
-  if (!match) return null;
-
-  return {
-    baseTitle: title.slice(0, -match[0].length).trim(),
-    variantLabel: match[1].toLowerCase() === "ж/б" ? "ж/б" : match[1],
-  };
-}
-
-function getDrinkVariantSortOrder(label: string) {
-  if (label === "0,5л") return 0;
-  if (label === "1л") return 1;
-  if (label === "1,5л") return 2;
-  if (label === "ж/б") return 3;
-  return 9;
 }
 
 function formatPriceRange(prices: number[]) {
@@ -147,7 +121,7 @@ function DrinkGroupCard({
   title: string;
   description: string;
   photoUrl: string;
-  variants: DrinkVariant[];
+  variants: Array<MenuVariant<MenuItem>>;
   animationDelay: number;
   qtyMap: Map<string, number>;
   onOpen: (item: MenuItem) => void;
@@ -196,11 +170,11 @@ function DrinkGroupCard({
                 onTouchStart={() => warmImage(variant.photoUrl)}
                 onFocus={() => warmImage(variant.photoUrl)}
                 className="min-w-0 flex-1 text-left focus:outline-none"
-                aria-label={`Подробнее: ${title}, ${variant.variantLabel}`}
+                aria-label={`Подробнее: ${title}, ${variant.resolvedVariantLabel}`}
               >
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-gray-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
-                    {variant.variantLabel}
+                    {variant.resolvedVariantLabel}
                   </span>
                   {!variant.isAvailable ? (
                     <span className="text-[11px] font-semibold text-gray-400">нет в наличии</span>
@@ -226,7 +200,7 @@ function DrinkGroupCard({
                       type="button"
                       onClick={() => onAdd(variant)}
                       className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500 text-xl font-bold text-white shadow-[0_4px_12px_-4px_rgba(249,115,22,0.5)] active:scale-90"
-                      aria-label={`Добавить ${title}, ${variant.variantLabel}`}
+                      aria-label={`Добавить ${title}, ${variant.resolvedVariantLabel}`}
                     >
                       +
                     </button>
@@ -416,79 +390,11 @@ export default function MenuScreen({ slug }: { slug: string }) {
       ? data.items.filter(
           (item) =>
             item.title.toLowerCase().includes(query) ||
-            (item.description ?? "").toLowerCase().includes(query),
+          (item.description ?? "").toLowerCase().includes(query),
         )
       : data.items;
 
-    return data.categories
-      .map((category) => {
-        const categoryItems = filteredItems.filter((item) => item.categoryId === category.id);
-        if (categoryItems.length === 0) return { category, entries: [] as MenuDisplayEntry[] };
-
-        if (category.title !== DRINKS_CATEGORY_TITLE) {
-          return {
-            category,
-            entries: categoryItems.map((item) => ({ type: "item" as const, item })),
-          };
-        }
-
-        const groupedDrinks = new Map<string, DrinkVariant[]>();
-        const entries: MenuDisplayEntry[] = [];
-
-        for (const item of categoryItems) {
-          const meta = getDrinkVariantMeta(item.title);
-          if (!meta) {
-            entries.push({ type: "item", item });
-            continue;
-          }
-
-          const existingVariants = groupedDrinks.get(meta.baseTitle);
-          if (existingVariants) {
-            existingVariants.push({ ...item, variantLabel: meta.variantLabel });
-            continue;
-          }
-
-          groupedDrinks.set(meta.baseTitle, [{ ...item, variantLabel: meta.variantLabel }]);
-          entries.push({
-            type: "drink-group",
-            key: meta.baseTitle,
-            title: meta.baseTitle,
-            description: "",
-            photoUrl: item.photoUrl,
-            variants: [],
-          });
-        }
-
-        return {
-          category,
-          entries: entries.map((entry) => {
-            if (entry.type !== "drink-group") return entry;
-
-            const variants = [...(groupedDrinks.get(entry.key) ?? [])].sort((left, right) => {
-              const orderDiff =
-                getDrinkVariantSortOrder(left.variantLabel) -
-                getDrinkVariantSortOrder(right.variantLabel);
-              if (orderDiff !== 0) return orderDiff;
-              return left.priceKgs - right.priceKgs;
-            });
-            const labels = variants.map((variant) => variant.variantLabel);
-
-            return {
-              ...entry,
-              photoUrl:
-                variants.find((variant) => variant.isAvailable)?.photoUrl ??
-                variants[0]?.photoUrl ??
-                entry.photoUrl,
-              variants,
-              description:
-                labels.length > 1
-                  ? `Выберите объем: ${labels.join(", ")}`
-                  : `Объем: ${labels[0] ?? "доступен"}`,
-            };
-          }),
-        };
-      })
-      .filter((entry) => entry.entries.length > 0);
+    return groupMenuEntries(data.categories, filteredItems);
   }, [data, searchQuery]);
 
   useEffect(() => {
@@ -734,7 +640,11 @@ export default function MenuScreen({ slug }: { slug: string }) {
                         <DrinkGroupCard
                           key={entry.key}
                           title={entry.title}
-                          description={entry.description}
+                          description={
+                            entry.variants.length > 1
+                              ? `Выберите объем: ${entry.variants.map((variant) => variant.resolvedVariantLabel).join(", ")}`
+                              : entry.description
+                          }
                           photoUrl={entry.photoUrl}
                           variants={entry.variants}
                           animationDelay={Math.min(animationIndex * 45, 280)}
