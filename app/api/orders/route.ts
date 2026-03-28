@@ -110,6 +110,10 @@ export async function POST(req: Request) {
 
     const { restaurantSlug, items, location, paymentMethod, customerPhone, payerName, comment } =
       parsed.data;
+    const normalizedPayerName = payerName?.trim() ?? "";
+    if (paymentMethod !== "cash" && normalizedPayerName.length < 2) {
+      return NextResponse.json({ error: "Укажите имя плательщика" }, { status: 400 });
+    }
     const idempotencyKey = normalizeIdempotencyKey(
       parsed.data.idempotencyKey || req.headers.get("x-idempotency-key"),
     );
@@ -206,7 +210,7 @@ export async function POST(req: Request) {
           paymentMethod: dbPaymentMethod,
           totalKgs,
           customerPhone: customerPhone || null,
-          payerName: payerName?.trim() || null,
+          payerName: normalizedPayerName || null,
           comment: normalizedComment || null,
           idempotencyKey: idempotencyKey || null,
           paymentConfirmedAt: dbPaymentMethod === "cash" ? new Date() : null,

@@ -17,9 +17,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return NextResponse.json({ error: "Заказ не найден" }, { status: 404 });
-    if (order.paymentMethod === "cash") return NextResponse.json({ error: "Это не банковский заказ" }, { status: 400 });
+    if (order.paymentMethod === "cash") {
+      return NextResponse.json({ error: "Это не банковский заказ" }, { status: 400 });
+    }
     if (order.status === "canceled" || order.status === "delivered") {
       return NextResponse.json({ error: "Нельзя изменить статус этого заказа" }, { status: 400 });
+    }
+    if (payerName && payerName.length < 2) {
+      return NextResponse.json({ error: "Укажите имя плательщика" }, { status: 400 });
+    }
+
+    const resolvedPayerName = payerName || order.payerName?.trim() || "";
+    if (resolvedPayerName.length < 2) {
+      return NextResponse.json({ error: "Укажите имя плательщика" }, { status: 400 });
     }
 
     const nextStatus = order.status === "created" ? "pending_confirmation" : order.status;
@@ -28,8 +38,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       where: { id },
       data: {
         status: nextStatus,
-        ...(payerName ? { payerName: payerName.slice(0, 60) } : {})
-      }
+        payerName: resolvedPayerName.slice(0, 60),
+      },
     });
     return NextResponse.json({ ok: true, status: updated.status });
   } catch (error: unknown) {

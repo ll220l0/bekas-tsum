@@ -9,5 +9,5 @@ export function toDbPaymentMethod(paymentMethod: string): "qr_image" | "cash" {
 }
 
 export function paymentMethodLabel(paymentMethod: string) {
-  return paymentMethod === "cash" ? "\u041D\u0430\u043B\u0438\u0447\u043D\u044B\u043C\u0438" : "\u0411\u0430\u043D\u043A\u043E\u043C";
+  return paymentMethod === "cash" ? "\u041D\u0430\u043B\u0438\u0447\u043D\u044B\u043C\u0438" : "Mbank";
 }
