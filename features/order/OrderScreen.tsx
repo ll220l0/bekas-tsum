@@ -23,6 +23,7 @@ import {
   isHistoryStatus,
   isPendingConfirmation,
 } from "@/lib/orderStatus";
+import { DEFAULT_RESTAURANT_SLUG } from "@/lib/restaurantConfig";
 
 type OrderItem = { id: string; title: string; qty: number; priceKgs: number; photoUrl: string };
 type OrderData = {
@@ -431,7 +432,8 @@ export default function OrderScreen({ orderId }: { orderId: string }) {
   }, [loadOrder, orderId]);
 
   const statusMeta = useMemo(() => getOrderStatusMeta(data?.status ?? ""), [data?.status]);
-  const menuSlug = data?.restaurant?.slug ?? history[0]?.restaurant?.slug ?? "dordoi-food";
+  const menuSlug =
+    data?.restaurant?.slug ?? history[0]?.restaurant?.slug ?? DEFAULT_RESTAURANT_SLUG;
   const isArchived = isHistoryStatus(data?.status ?? "");
   const hasNoActiveOrder = !orderLoading && (orderMissing || !data);
   const canCancel =

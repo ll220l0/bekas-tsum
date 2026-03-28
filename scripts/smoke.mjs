@@ -3,6 +3,8 @@
 const baseUrl = process.env.SMOKE_BASE_URL || "http://localhost:3000";
 const adminUser = process.env.ADMIN_USER || "";
 const adminPass = process.env.ADMIN_PASS || "";
+const defaultRestaurantSlug =
+  process.env.NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG?.trim() || "dordoi-food";
 
 async function assertOk(name, res) {
   if (!res.ok) {
@@ -20,7 +22,9 @@ async function run() {
   if (!healthJson?.ok) throw new Error("health response missing ok=true");
   console.log("[smoke] health ok");
 
-  const menu = await fetch(`${baseUrl}/api/restaurants/dordoi-food/menu`, { cache: "no-store" });
+  const menu = await fetch(`${baseUrl}/api/restaurants/${defaultRestaurantSlug}/menu`, {
+    cache: "no-store",
+  });
   await assertOk("menu", menu);
   const menuJson = await menu.json();
   if (!menuJson?.restaurant?.slug) throw new Error("menu response missing restaurant slug");

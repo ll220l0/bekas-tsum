@@ -62,6 +62,7 @@ git push -u origin main
    - `ADMIN_SESSION_SECRET` (strong random secret for signed admin session cookies)
    - `ADMIN_BANK_PASS` (optional, separate password for bank numbers changes in admin menu)
    - `NEXT_PUBLIC_APP_NAME`
+   - `NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG` (unique slug per project, e.g. `bekas-dordoi` / `bekas-tsum`)
    - `NEXT_PUBLIC_MBANK_PAY_URL` (optional, overrides default bank deeplink template)
    - `FREEDOMPAY_MERCHANT_ID` (Freedom Pay project ID)
    - `FREEDOMPAY_SECRET_KEY` (Freedom Pay secret key for incoming payments)
@@ -93,6 +94,7 @@ If you see `Application error: a server-side exception has occurred`, usually DB
 - `ADMIN_SESSION_SECRET`
 - `ADMIN_BANK_PASS` (optional)
 - `NEXT_PUBLIC_APP_NAME`
+- `NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG` (must be unique for each project deployment)
 - `NEXT_PUBLIC_MBANK_PAY_URL` (optional)
 - `FREEDOMPAY_MERCHANT_ID`
 - `FREEDOMPAY_SECRET_KEY`

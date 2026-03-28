@@ -11,6 +11,7 @@ import {
   getOrderHistory,
   getPendingPayOrderId,
 } from "@/lib/clientPrefs";
+import { DEFAULT_RESTAURANT_SLUG } from "@/lib/restaurantConfig";
 
 function ReceiptIcon({ className = "h-7 w-7" }: { className?: string }) {
   return (
@@ -36,7 +37,7 @@ export default function OrderHubPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [hasOrder, setHasOrder] = useState(false);
-  const [menuSlug, setMenuSlug] = useState("dordoi-food");
+  const [menuSlug, setMenuSlug] = useState(DEFAULT_RESTAURANT_SLUG);
 
   useEffect(() => {
     const pendingPayOrderId = getPendingPayOrderId();
@@ -55,7 +56,7 @@ export default function OrderHubPage() {
 
     const lastOrderId = getLastOrderId();
     const history = getOrderHistory();
-    const slug = history[0]?.restaurantSlug || "dordoi-food";
+    const slug = history[0]?.restaurantSlug || DEFAULT_RESTAURANT_SLUG;
 
     setMenuSlug(slug);
 
