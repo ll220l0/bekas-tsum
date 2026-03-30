@@ -272,10 +272,7 @@ export default function AdminOrdersPage() {
   }
 
   const orders = useMemo(() => data?.orders ?? [], [data?.orders]);
-  const activeOrders = useMemo(
-    () => orders.filter((o) => !isHistoryStatus(o.status) && o.payerName.trim().length > 0),
-    [orders],
-  );
+  const activeOrders = useMemo(() => orders.filter((o) => !isHistoryStatus(o.status)), [orders]);
   const historyOrders = useMemo(() => orders.filter((o) => isHistoryStatus(o.status)), [orders]);
 
   function renderOrderCard(order: AdminOrder) {
