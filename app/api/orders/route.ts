@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { OrderStatus, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { toApiError } from "@/lib/apiError";
 import { buildMbankPayUrl } from "@/lib/mbankLink";
@@ -50,10 +50,10 @@ async function findRecentDuplicateOrder(params: {
   items: Array<{ menuItemId: string; qty: number }>;
   comment: string;
 }) {
-  const duplicateStatuses =
+  const duplicateStatuses: OrderStatus[] =
     params.dbPaymentMethod === "qr_image"
-      ? (["created", "pending_confirmation"] as const)
-      : (["created", "pending_confirmation", "confirmed"] as const);
+      ? ["created", "pending_confirmation"]
+      : ["created", "pending_confirmation", "confirmed"];
 
   const from = new Date(Date.now() - readDuplicateWindowSeconds() * 1_000);
   const recentOrders = await prisma.order.findMany({
