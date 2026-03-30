@@ -337,7 +337,8 @@ export default function MenuScreen({ slug }: { slug: string }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["menu", slug],
     queryFn: () => fetchMenu(slug),
-    refetchInterval: 15000,
+    refetchInterval: 60000,
+    refetchOnWindowFocus: false,
   });
 
   const router = useRouter();

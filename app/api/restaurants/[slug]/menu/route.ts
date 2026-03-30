@@ -3,6 +3,8 @@ import { listMenuItemsByRestaurant } from "@/lib/menuItemCompat";
 import { prisma } from "@/lib/prisma";
 import { getRestaurantDisplayName } from "@/lib/restaurant";
 
+export const revalidate = 60;
+
 async function findRestaurantBySlug(slug: string) {
   return prisma.restaurant.findUnique({
     where: { slug },

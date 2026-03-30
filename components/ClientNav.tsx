@@ -142,7 +142,7 @@ export function ClientNav({ menuHref, orderHref }: Props) {
     };
 
     syncOrderHref();
-    const timer = window.setInterval(syncOrderHref, 1500);
+    const timer = window.setInterval(syncOrderHref, 5000);
     const onFocus = () => syncOrderHref();
     const onVisibility = () => {
       if (document.visibilityState === "visible") syncOrderHref();
@@ -187,7 +187,7 @@ export function ClientNav({ menuHref, orderHref }: Props) {
     };
 
     void load();
-    const timer = window.setInterval(() => void load(), 5000);
+    const timer = window.setInterval(() => void load(), 20000);
     return () => {
       stopped = true;
       window.clearInterval(timer);

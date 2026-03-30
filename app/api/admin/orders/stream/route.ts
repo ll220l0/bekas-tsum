@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+const STREAM_POLL_INTERVAL_MS = 15_000;
 
 function toEvent(event: string, payload: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
@@ -20,27 +21,25 @@ export async function GET() {
       let lastSignature = "";
 
       const pushMeta = async () => {
-        await expireStaleOrders();
+        const latest = await prisma.order.findFirst({
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true },
+        });
 
-        const [latest, total] = await Promise.all([
-          prisma.order.findFirst({ orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
-          prisma.order.count()
-        ]);
-
-        const signature = `${latest?.updatedAt?.toISOString() ?? "none"}:${total}`;
+        const signature = latest?.updatedAt?.toISOString() ?? "none";
         if (signature === lastSignature) return;
         lastSignature = signature;
         controller.enqueue(
           encoder.encode(
             toEvent("orders_meta", {
               updatedAt: latest?.updatedAt ?? null,
-              total
-            })
+            }),
           )
         );
       };
 
       try {
+        await expireStaleOrders();
         await pushMeta();
       } catch {
         controller.enqueue(encoder.encode(toEvent("error", { message: "stream_init_failed" })));
@@ -54,7 +53,7 @@ export async function GET() {
         } catch {
           controller.enqueue(encoder.encode(toEvent("error", { message: "stream_tick_failed" })));
         }
-      }, 2500);
+      }, STREAM_POLL_INTERVAL_MS);
 
       const close = () => {
         if (closed) return;
