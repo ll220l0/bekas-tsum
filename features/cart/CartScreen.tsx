@@ -24,7 +24,12 @@ import {
 import { formatKgs } from "@/lib/money";
 
 type PaymentMethod = "bank" | "cash";
-type CreateOrderResponse = { orderId: string; bankPayUrl?: string | null };
+type CreateOrderResponse = {
+  orderId: string;
+  bankPayUrl?: string | null;
+  created?: boolean;
+  deduplicated?: boolean;
+};
 const MARKET_OPTIONS = ["Цум", "Гум", "Олд Бишкек", "Берен Голд"] as const;
 const OLD_BISHKEK = "Олд Бишкек";
 
@@ -272,6 +277,9 @@ export default function CartScreen() {
         | null;
       if (!response.ok || !payloadJson?.orderId) {
         throw new Error(payloadJson?.error ?? "Не удалось создать заказ");
+      }
+      if (payloadJson.deduplicated || payloadJson.created === false) {
+        toast("Похожий заказ уже создан недавно, открываем его");
       }
 
       setIdempotencyKey(createIdempotencyKey());
