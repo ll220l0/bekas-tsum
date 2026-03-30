@@ -65,8 +65,18 @@ async function findRecentDuplicateOrder(params: {
       createdAt: { gte: from },
       status: { in: duplicateStatuses },
     },
-    include: {
-      restaurant: true,
+    select: {
+      id: true,
+      totalKgs: true,
+      comment: true,
+      payerName: true,
+      location: true,
+      paymentMethod: true,
+      restaurant: {
+        select: {
+          mbankNumber: true,
+        },
+      },
       items: {
         select: {
           menuItemId: true,
@@ -141,7 +151,16 @@ export async function POST(req: Request) {
     if (idempotencyKey) {
       const existing = await prisma.order.findUnique({
         where: { idempotencyKey },
-        include: { restaurant: true },
+        select: {
+          id: true,
+          paymentMethod: true,
+          totalKgs: true,
+          restaurant: {
+            select: {
+              mbankNumber: true,
+            },
+          },
+        },
       });
 
       if (existing) {
@@ -256,7 +275,16 @@ export async function POST(req: Request) {
       ) {
         const existing = await prisma.order.findUnique({
           where: { idempotencyKey },
-          include: { restaurant: true },
+          select: {
+            id: true,
+            paymentMethod: true,
+            totalKgs: true,
+            restaurant: {
+              select: {
+                mbankNumber: true,
+              },
+            },
+          },
         });
 
         if (existing) {

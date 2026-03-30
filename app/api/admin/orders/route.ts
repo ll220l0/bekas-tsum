@@ -16,7 +16,38 @@ export async function GET() {
     await expireStaleOrders();
 
     const orders = await prisma.order.findMany({
-      include: { restaurant: true, items: true },
+      select: {
+        id: true,
+        status: true,
+        totalKgs: true,
+        paymentMethod: true,
+        payerName: true,
+        canceledReason: true,
+        paymentCode: true,
+        customerPhone: true,
+        comment: true,
+        location: true,
+        createdAt: true,
+        updatedAt: true,
+        paymentConfirmedAt: true,
+        deliveredAt: true,
+        canceledAt: true,
+        restaurant: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            titleSnap: true,
+            qty: true,
+            priceKgs: true,
+            photoSnap: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 200,
     });
