@@ -50,6 +50,11 @@ async function findRecentDuplicateOrder(params: {
   items: Array<{ menuItemId: string; qty: number }>;
   comment: string;
 }) {
+  const duplicateStatuses =
+    params.dbPaymentMethod === "qr_image"
+      ? (["created", "pending_confirmation"] as const)
+      : (["created", "pending_confirmation", "confirmed"] as const);
+
   const from = new Date(Date.now() - readDuplicateWindowSeconds() * 1_000);
   const recentOrders = await prisma.order.findMany({
     where: {
@@ -57,7 +62,7 @@ async function findRecentDuplicateOrder(params: {
       paymentMethod: params.dbPaymentMethod,
       customerPhone: params.customerPhone,
       createdAt: { gte: from },
-      status: { in: ["created", "pending_confirmation", "confirmed", "cooking", "delivering"] },
+      status: { in: duplicateStatuses },
     },
     include: {
       restaurant: true,

@@ -42,6 +42,7 @@ const CONFIRMED_STATUSES = new Set<OrderResp["status"]>([
   "delivered",
 ]);
 const card = "rounded-2xl bg-white shadow-card";
+const PAYMENT_QR_SRC = "/qr/mbank-tsum.jpg";
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Ошибка";
@@ -354,6 +355,19 @@ export default function PayScreen({ orderId }: { orderId: string }) {
                     Банковский номер не настроен
                   </div>
                 )}
+
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-2">
+                  <div className="relative mx-auto aspect-square w-full max-w-[320px]">
+                    <Image
+                      src={PAYMENT_QR_SRC}
+                      alt="QR для оплаты"
+                      fill
+                      className="rounded-xl object-contain"
+                      sizes="320px"
+                      priority
+                    />
+                  </div>
+                </div>
 
                 <button
                   onClick={() => void markPaid()}
