@@ -60,6 +60,15 @@ function getEffectiveTotalKgs(order: OrderResp | null, fallbackTotalKgs = 0) {
   return computed > 0 ? computed : fallbackTotalKgs;
 }
 
+function buildAndroidIntentUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return `intent://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+  } catch {
+    return url;
+  }
+}
+
 function Check({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
@@ -124,6 +133,27 @@ export default function PayScreen({ orderId }: { orderId: string }) {
   );
   const isApproved = data ? CONFIRMED_STATUSES.has(data.status) : false;
   const isCanceled = data?.status === "canceled";
+
+  function openBankApp() {
+    if (!resolvedBankUrl) return;
+
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
+    const isAndroid = userAgent.includes("android");
+    const isMbankUrl = resolvedBankUrl.includes("app.mbank.kg");
+
+    if (isAndroid && isMbankUrl && typeof window !== "undefined") {
+      const intentUrl = buildAndroidIntentUrl(resolvedBankUrl);
+      window.location.href = intentUrl;
+      window.setTimeout(() => {
+        window.open(resolvedBankUrl, "_blank", "noopener,noreferrer");
+      }, 700);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.open(resolvedBankUrl, "_blank", "noopener,noreferrer");
+    }
+  }
 
   useEffect(() => {
     setPendingPayOrderId(orderId);
@@ -344,13 +374,14 @@ export default function PayScreen({ orderId }: { orderId: string }) {
                 </div>
 
                 {resolvedBankUrl ? (
-                  <a
-                    href={resolvedBankUrl}
+                  <button
+                    type="button"
+                    onClick={openBankApp}
                     className="flex h-14 w-full items-center justify-center gap-3 rounded-[14px] bg-emerald-500 text-base font-bold text-white shadow-[0_8px_24px_-8px_rgba(34,197,94,0.4)] transition-all duration-200 hover:bg-emerald-600 active:scale-[0.98]"
                     aria-label="Перейти к оплате в банке"
                   >
                     Оплатить в банке
-                  </a>
+                  </button>
                 ) : (
                   <div className="flex h-14 w-full items-center justify-center rounded-[14px] border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-500">
                     Банковский номер не настроен
