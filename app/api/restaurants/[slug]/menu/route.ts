@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getBusinessHoursStatus } from "@/lib/businessHours";
 import { listMenuItemsByRestaurant } from "@/lib/menuItemCompat";
 import { prisma } from "@/lib/prisma";
 import { getRestaurantDisplayName } from "@/lib/restaurant";
@@ -49,6 +50,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
   if (!restaurant) return NextResponse.json({ error: "Ресторан не найден" }, { status: 404 });
 
   const items = await listMenuItemsByRestaurant(restaurant.id);
+  const businessHours = getBusinessHoursStatus();
 
   return NextResponse.json({
     restaurant: {
@@ -74,5 +76,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
       isAvailable: i.isAvailable,
       sortOrder: i.sortOrder,
     })),
+    businessHours,
   });
 }

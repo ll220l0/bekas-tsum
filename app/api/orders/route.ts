@@ -1,6 +1,7 @@
 import { OrderStatus, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { toApiError } from "@/lib/apiError";
+import { getBusinessHoursClosedMessage, getBusinessHoursStatus } from "@/lib/businessHours";
 import { buildMbankPayUrl } from "@/lib/mbankLink";
 import { listMenuItemsByIds } from "@/lib/menuItemCompat";
 import { checkOrderCreateThrottle, expireStaleOrders } from "@/lib/orderLifecycle";
@@ -105,6 +106,17 @@ async function findRecentDuplicateOrder(params: {
 
 export async function POST(req: Request) {
   try {
+    const businessHours = getBusinessHoursStatus();
+    if (!businessHours.isOpen) {
+      return NextResponse.json(
+        {
+          error: getBusinessHoursClosedMessage(),
+          businessHours,
+        },
+        { status: 403 },
+      );
+    }
+
     await expireStaleOrders();
 
     const body = await req.json().catch(() => null);

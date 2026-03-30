@@ -25,6 +25,12 @@ type MenuResp = {
     isAvailable: boolean;
     sortOrder?: number;
   }[];
+  businessHours?: {
+    isOpen: boolean;
+    openTime: string;
+    closeTime: string;
+    timezone: string;
+  };
 };
 
 type MenuItem = MenuResp["items"][number];
@@ -357,6 +363,9 @@ export default function MenuScreen({ slug }: { slug: string }) {
   const lines = useCart((state) => state.lines);
 
   const effectiveSlug = data?.restaurant?.slug ?? slug;
+  const isBusinessClosed = data ? data.businessHours?.isOpen === false : false;
+  const openTime = data?.businessHours?.openTime ?? "09:30";
+  const closeTime = data?.businessHours?.closeTime ?? "21:30";
 
   useEffect(() => {
     setRestaurant(effectiveSlug);
@@ -763,6 +772,17 @@ export default function MenuScreen({ slug }: { slug: string }) {
           onInc={() => inc(selectedItem.id)}
           onDec={() => dec(selectedItem.id)}
         />
+      )}
+
+      {isBusinessClosed && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/45 backdrop-blur-md">
+          <div className="rounded-2xl border border-white/60 bg-white/85 px-7 py-5 text-center shadow-[0_18px_40px_rgba(15,23,42,0.2)]">
+            <div className="text-2xl font-extrabold text-gray-900">Сейчас закрыто</div>
+            <div className="mt-2 text-sm font-semibold text-gray-700">
+              Работаем ежедневно с {openTime} до {closeTime}
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
